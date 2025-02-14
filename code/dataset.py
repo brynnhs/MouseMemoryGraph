@@ -145,6 +145,8 @@ class PhotometryDataset():
             df_normalized[reg + ".signal"] = z_signal
             df_normalized[reg + ".control"] = z_control
         
+        self.df = df_normalized
+        
         return df_normalized
 
 
