@@ -251,8 +251,8 @@ class MergeDatasets():
 
     
     
-photometry = PhotometryDataset("/Users/julian/Documents/daten/STUDIUM Master/FabLab 2025/raw data - 04 Feb/cfc_2046.csv")
-behavior = BehaviorDataset("/Users/julian/Documents/daten/STUDIUM Master/FabLab 2025/Codebase/MouseMemoryGraph/data/a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
+photometry = PhotometryDataset("/Users/brynnharrisshanks/Documents/GitHub/MouseMemoryGraph/data/cfc_2046.csv")
+behavior = BehaviorDataset("/Users/brynnharrisshanks/Documents/GitHub/MouseMemoryGraph/data/a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
 
 df = photometry.normalize_signal()
 print(df.head())
