@@ -9,7 +9,7 @@ import base64
 import io
 from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 
-dash_app = dash.Dash(__name__)
+dash_app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
 uploaded_photometry_df = None
 uploaded_behavior_df = None
@@ -74,13 +74,13 @@ def update_graphs(photometry_contents, behavior_contents, photometry_filename, b
         photometry = PhotometryDataset(io.StringIO(df.to_csv(index=False)))
         photometry.normalize_signal()
         
-        acc_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ACC.signal'], mode='lines', name='ACC Signal', line=dict(color='red', width=1, dash='solid'), opacity=0.5))
-        acc_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ACC.control'], mode='lines', name='ACC Control', line=dict(color='green', width=1, dash='solid'), opacity=0.5))
+        acc_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ACC.signal'], mode='lines', name='ACC Signal', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
+        acc_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ACC.control'], mode='lines', name='ACC Control', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
         acc_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ACC.zdFF'], mode='lines', name='ACC zdFF', line=dict(color='blue', width=2, dash='solid')))
         acc_fig.update_layout(title='ACC Signal, Control, and zdFF')
         
-        adn_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ADN.signal'], mode='lines', name='ADN Signal', line=dict(color='red', width=1, dash='solid'), opacity=0.5))
-        adn_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ADN.control'], mode='lines', name='ADN Control', line=dict(color='green', width=1, dash='solid'), opacity=0.5))
+        adn_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ADN.signal'], mode='lines', name='ADN Signal', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
+        adn_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ADN.control'], mode='lines', name='ADN Control', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
         adn_fig.add_trace(go.Scatter(x=photometry.df.index, y=photometry.df['ADN.zdFF'], mode='lines', name='ADN zdFF', line=dict(color='blue', width=2, dash='solid')))
         adn_fig.update_layout(title='ADN Signal, Control, and zdFF')
     
