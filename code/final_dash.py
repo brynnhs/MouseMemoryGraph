@@ -137,4 +137,4 @@ def update_graphs(photometry_contents, behavior_contents, photometry_filename, b
     return photometry_filename if photometry_contents else "No file uploaded", behavior_filename if behavior_contents else "No file uploaded", acc_fig, adn_fig, acc_interval_fig, adn_interval_fig
 
 if __name__ == '__main__':
-    dash_app.run_server(debug=True, port=8050)
+    dash_app.run_server(debug=True, port=8050, host='0.0.0.0')
