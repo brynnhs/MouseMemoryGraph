@@ -237,17 +237,48 @@ class MergeDatasets():
         behavior.df['Time(s)'] = behavior.df['Time(s)'].round(2)
 
         self.df = pd.merge(photometry.df, behavior.df, on="Time(s)", how="outer")
+        self.fps = min(photometry.fps, behavior.fps)
 
         # drop rows with NaN values
         self.df = self.df.dropna()
 
         # get rid of rows with 'AOut-1' == 0
         self.df = self.df[self.df['AOut-1'] != 0]
+        self.df = self.df.reset_index()
 
-        # check for continuous time
-        time_diff = np.diff(self.df['Time(s)'])
-        #assert np.allclose(time_diff, time_diff[0]), "Time is not continuous"
+    def get_freezing_intervals(self):
+        onsets = self.df[self.df['freezing'].diff() == 1].index
+        offsets = self.df[self.df['freezing'].diff() == -1].index
+        intervals = list(zip(onsets, offsets))
+        return intervals
+    
+    def get_epoch_data(self, intervals, column, duration=1, type='on'):
+        """
+        Get photometry data for each epoch with a specified duration in seconds
 
+        - filter out all intervals that are shorter than the specified duration
+        - filter out all overlapping intervals
+        """
+        frames = int(duration * self.fps)
+        max = self.df.index[-1]
+
+        # filter out epochs where the difference between their onsets is less than twice the epoch duration
+        diff = np.diff([on for on, off in intervals])
+        diff = np.insert(diff, 0, 0)
+        intervals = [intervals[i] for i in range(len(intervals)) if diff[i] > 2 * frames]
+
+        if type == 'on':
+            epochs = [(int(on-frames), int(on+frames)) for on, off in intervals  if off - on > frames]
+        elif type == 'off':
+            epochs = [(int(off-frames), int(off+frames)) for on, off in intervals  if off - on > frames]
+        else:
+            # throw an error
+            print("Type not recognized")
+        #filter out epochs that are out of bounds
+        epochs = [(beg, end) for beg, end in epochs if beg > 0 and end < max]
+        epochs = [[(beg, end), self.df[column+'.zdFF'][beg:end]] for beg, end in epochs]
+        
+        return epochs
 
     
     
@@ -264,4 +295,9 @@ print(merged.df.head())
 
 #start an end time
 print(merged.df['Time(s)'].iloc[0], merged.df['Time(s)'].iloc[-1])
+
+intervals = merged.get_freezing_intervals()
+print(intervals)
+epochs = merged.get_epoch_data(intervals, 'ACC')
+print(epochs)
 
