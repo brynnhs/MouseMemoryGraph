@@ -72,15 +72,20 @@ def update_tab(selected_mouse):
         return "No data available."
     
     dataset = mouse_data[selected_mouse]
+
     acc_fig_path = os.path.join(cache_dir, f"{selected_mouse}_ACC.json")
     adn_fig_path = os.path.join(cache_dir, f"{selected_mouse}_ADN.json")
-    
-    if os.path.exists(acc_fig_path) and os.path.exists(adn_fig_path):
+    acc_interval_fig_path = os.path.join(cache_dir, f"{selected_mouse}_ACC_interval.json")
+    adn_interval_fig_path = os.path.join(cache_dir, f"{selected_mouse}_ADN_interval.json")
+
+    if all(os.path.exists(path) for path in [acc_fig_path, adn_fig_path, acc_interval_fig_path, adn_interval_fig_path]):
         # Load cached figures
         acc_fig = load_figure(acc_fig_path)
         adn_fig = load_figure(adn_fig_path)
+        acc_interval_fig = load_figure(acc_interval_fig_path)
+        adn_interval_fig = load_figure(adn_interval_fig_path)
     else:
-        # Generate figures and save them
+        # Generate new figures
         acc_fig = go.Figure()
         adn_fig = go.Figure()
 
@@ -120,15 +125,33 @@ def update_tab(selected_mouse):
 
         adn_fig.update_layout(title='ADN Signal, Control, and zdFF', xaxis_title='Index', yaxis_title='Value')
 
-        # Save plots for future use
+        # Generate interval plots
+        acc_interval_fig = go.Figure()
+        adn_interval_fig = go.Figure()
+        epochs = [(int(on - fps * 1.5), int(on + fps * 1.5)) for on, off in intervals]
+
+        for inter in epochs:
+            if inter[0] < 0 or inter[1] > len(dataset):
+                continue
+            x = np.arange(-fps * 1.5, fps * 1.5)
+            acc_interval_fig.add_trace(go.Scatter(x=x, y=dataset['ACC.signal'][inter[0]:inter[1]], mode='lines', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
+            adn_interval_fig.add_trace(go.Scatter(x=x, y=dataset['ADN.signal'][inter[0]:inter[1]], mode='lines', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
+
+        # Save figures
         save_figure(acc_fig, acc_fig_path)
         save_figure(adn_fig, adn_fig_path)
+        save_figure(acc_interval_fig, acc_interval_fig_path)
+        save_figure(adn_interval_fig, adn_interval_fig_path)
 
     return html.Div([
         html.Div([
             dcc.Graph(figure=acc_fig),
             dcc.Graph(figure=adn_fig),
-        ], style={'width': '65%', 'display': 'inline-block', 'vertical-align': 'top'})
+        ], style={'width': '65%', 'display': 'inline-block', 'vertical-align': 'top'}),
+        html.Div([
+            dcc.Graph(figure=acc_interval_fig),
+            dcc.Graph(figure=adn_interval_fig),
+        ], style={'width': '35%', 'display': 'inline-block', 'vertical-align': 'top'})
     ])
 
 if __name__ == '__main__':
