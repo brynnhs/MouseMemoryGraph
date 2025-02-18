@@ -89,7 +89,7 @@ This project is licensed under the MIT License. See `LICENSE` for more details.
 
 ## Authors
 
-- (Brynn Harris-Shanks)[https://www.linkedin.com/in/brynn-harris-shanks/]
-- (Julian Ostermaier)[https://www.linkedin.com/in/julian-ostermaier-6821761b3/]
-- (Maria Jose Araya)[https://www.linkedin.com/in/maria-araya/]
+- [Brynn Harris-Shanks](https://www.linkedin.com/in/brynn-harris-shanks/)
+- [Julian Ostermaier](https://www.linkedin.com/in/julian-ostermaier-6821761b3/)
+- [Maria Jose Araya](https://www.linkedin.com/in/maria-araya/)
   
