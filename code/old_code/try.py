@@ -145,4 +145,4 @@ def generate_plots(mergeddataset, intervals, fps):
     return acc_fig, adn_fig, acc_fig, adn_fig
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8050)
+    app.run_server(debug=False, port=8050)
