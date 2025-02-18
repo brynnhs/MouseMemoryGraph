@@ -17,7 +17,8 @@ else:
     # Running as a script
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-data_dir = os.path.join(base_path, "data")
+data_dir = os.path.join(base_path, "../data")  # Go to root of MouseMemoryGraph
+data_dir = os.path.abspath(data_dir)
 
 # Function to dynamically load mouse data
 def load_data():
@@ -131,27 +132,68 @@ def generate_plots(mergeddataset, intervals, fps):
     """ Function to generate ACC and ADN plots with intervals """
     acc_fig = go.Figure()
     adn_fig = go.Figure()
+    acc_interval_fig = go.Figure()
+    adn_interval_fig = go.Figure()
 
-    # Apply freezing intervals
+    # Apply freezing intervals to full-trace plots
     for on, off in intervals:
         acc_fig.add_vrect(x0=on, x1=off, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
         adn_fig.add_vrect(x0=on, x1=off, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
-    # ACC signals
+    # Full ACC signals
     acc_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ACC.signal'], mode='lines', name='ACC Signal', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
     acc_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ACC.control'], mode='lines', name='ACC Control', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
     acc_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ACC.zdFF'], mode='lines', name='ACC zdFF', line=dict(color='blue', width=2, dash='solid')))
 
     acc_fig.update_layout(title='ACC Signal, Control, and zdFF', xaxis_title='Index', yaxis_title='Value')
 
-    # ADN signals
+    # Full ADN signals
     adn_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ADN.signal'], mode='lines', name='ADN Signal', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
     adn_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ADN.control'], mode='lines', name='ADN Control', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
     adn_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ADN.zdFF'], mode='lines', name='ADN zdFF', line=dict(color='blue', width=2, dash='solid')))
 
     adn_fig.update_layout(title='ADN Signal, Control, and zdFF', xaxis_title='Index', yaxis_title='Value')
 
-    return acc_fig, adn_fig, acc_fig, adn_fig
+    # Create epochs for interval plots
+    epochs = [(int(on - fps * 1.5), int(on + fps * 1.5)) for on, off in intervals]
+    aggregate_acc = []
+    aggregate_adn = []
+
+    # Interval plotting
+    for inter in epochs:
+        if inter[0] < 0 or inter[1] > len(mergeddataset):
+            continue  # Ignore out-of-bounds epochs
+
+        # Define x-axis for epoch (-1.5s to 1.5s)
+        x = np.linspace(-1.5, 1.5, num=inter[1] - inter[0])
+
+        # Extract and plot epochs
+        y_acc = mergeddataset['ACC.signal'].iloc[inter[0]:inter[1]].values
+        y_adn = mergeddataset['ADN.signal'].iloc[inter[0]:inter[1]].values
+
+        acc_interval_fig.add_trace(go.Scatter(x=x, y=y_acc, mode='lines', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
+        adn_interval_fig.add_trace(go.Scatter(x=x, y=y_adn, mode='lines', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
+
+        aggregate_acc.append(y_acc)
+        aggregate_adn.append(y_adn)
+
+    # Compute mean & standard deviation across epochs
+    aggregate_acc = np.array(aggregate_acc)
+    aggregate_adn = np.array(aggregate_adn)
+
+    if len(aggregate_acc) > 0:
+        mean_acc = np.mean(aggregate_acc, axis=0)
+        acc_interval_fig.add_trace(go.Scatter(x=x, y=mean_acc, mode='lines', line=dict(color='blue', width=2, dash='solid')))
+
+    if len(aggregate_adn) > 0:
+        mean_adn = np.mean(aggregate_adn, axis=0)
+        adn_interval_fig.add_trace(go.Scatter(x=x, y=mean_adn, mode='lines', line=dict(color='blue', width=2, dash='solid')))
+
+    # Update layouts
+    acc_interval_fig.update_layout(title='ACC Event-Aligned Intervals', xaxis_title='Time (s)', yaxis_title='Signal')
+    adn_interval_fig.update_layout(title='ADN Event-Aligned Intervals', xaxis_title='Time (s)', yaxis_title='Signal')
+
+    return acc_fig, adn_fig, acc_interval_fig, adn_interval_fig  # ✅ Correctly returning separate plots
 
 
 if __name__ == '__main__':
