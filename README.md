@@ -1,7 +1,7 @@
 # [MouseMemoryGraph](https://wiki.bme-paris.com/2025-project05/tiki-index.php?page=HomePage)
 
 ## Overview
-MouseMemoryGraph is a **Dash-based web application** for visualizing and analyzing neural and behavioral data from mouse experiments. The application integrates **photometry data** and **behavioral tracking data** to provide interactive visualizations and interval-based analyses.
+MouseMemoryGraph is a **Dash-based web application** for visualizing and analyzing neural and behavioral data from mouse experiments. The application integrates **photometry data** and **behavioral tracking data** to provide interactive visualizations and interval-based analyses. Click on the title above to check out our website which gives a detailed background on this project and our team.
 
 ## Features
 - Interactive plots for photometry and behavioral data
@@ -89,7 +89,7 @@ This project is licensed under the MIT License. See `LICENSE` for more details.
 
 ## Authors
 
-- Brynn Harris-Shanks
-- Julian Ostermaier
-- Maria Jose Araya
+- (Brynn Harris-Shanks)[https://www.linkedin.com/in/brynn-harris-shanks/]
+- (Julian Ostermaier)[https://www.linkedin.com/in/julian-ostermaier-6821761b3/]
+- (Maria Jose Araya)[https://www.linkedin.com/in/maria-araya/]
   
