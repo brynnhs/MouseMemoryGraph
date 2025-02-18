@@ -5,7 +5,7 @@ MouseMemoryGraph is a **Dash-based web application** for visualizing and analyzi
 
 ## Features
 - Interactive plots for photometry and behavioral data
-- Interval-based epoch extraction for event-aligned visualizations
+- Epoching for visualizations of freezing behaviour onset and offset events
 - Reprocessing functionality to incorporate newly added datasets
 - Web-based dashboard for intuitive data exploration
 
