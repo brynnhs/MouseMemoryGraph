@@ -17,14 +17,21 @@ merged = MergeDatasets(photometry, behavior)
 
 # Load your dataset
 mergeddataset = merged.df
+fps = merged.fps
+duration = 1
+intervals = merged.get_freezing_intervals()
+epochs_acc = merged.get_epoch_data(intervals, 'ACC', duration=duration)
+epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', duration=duration, type='off')
+epochs_adn = merged.get_epoch_data(intervals, 'ADN', duration=duration)
+epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', duration=duration, type='off')
 
 app = dash.Dash(__name__)
 
 # Create the ACC graph
 acc_fig = go.Figure()
-
+x = np.arange(0, len(mergeddataset)/fps, 1/fps)
 acc_fig.add_trace(go.Scatter(
-    x=mergeddataset.index,
+    x=x,
     y=mergeddataset['ACC.signal'],
     mode='lines',
     name='ACC Signal',
@@ -33,7 +40,7 @@ acc_fig.add_trace(go.Scatter(
 ))
 
 acc_fig.add_trace(go.Scatter(
-    x=mergeddataset.index,
+    x=x,
     y=mergeddataset['ACC.control'],
     mode='lines',
     name='ACC Control',
@@ -42,7 +49,7 @@ acc_fig.add_trace(go.Scatter(
 ))
 
 acc_fig.add_trace(go.Scatter(
-    x=mergeddataset.index,
+    x=x,
     y=mergeddataset['ACC.zdFF'],
     mode='lines',
     name='ACC zdFF',
@@ -57,54 +64,77 @@ acc_fig.update_layout(
 
 # from the freezing array find the onsets and offsets which is the change from 0 to 1 and 1 to 0
 
-onsets = mergeddataset[mergeddataset['freezing'].diff() == 1].index
-offsets = mergeddataset[mergeddataset['freezing'].diff() == -1].index
-intervals = list(zip(onsets, offsets))
-
 for on, off in intervals:
+    on = on / fps
+    off = off / fps
     acc_fig.add_vrect(x0=on, x1=off, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-
-
-# create intervals of 2s before and after event
-fps = 100
-epochs = [(int(on-fps*1.5), int(on+fps*1.5)) for on, off in intervals]
 
 # plot the lines
 acc_interval_fig = go.Figure()
 aggregate_epoch = []
-for inter in epochs:
-    if inter[0] < 0 or inter[1] > len(mergeddataset):
-        continue
-    else:
-        x = np.arange(-fps*1.5, fps*1.5)
-        y = mergeddataset['ACC.signal'][inter[0]:inter[1]]
-        acc_interval_fig.add_trace(go.Scatter(
-            x=x,
-            y=y,
-            mode='lines',
-            line=dict(color='gray', width=1, dash='solid'),
-            opacity=0.5
-        ))
-        aggregate_epoch.append(y)
+for i, inter in enumerate(epochs_acc):
+    x = np.arange(-duration, duration, 1/fps)
+    y = inter[1]
+    acc_interval_fig.add_trace(go.Scatter(
+        x=x,
+        y=y,
+        name=f'onset {i+1}',
+        mode='lines',
+        line=dict(color='gray', width=1, dash='solid'),
+        opacity=0.5
+    ))
+    aggregate_epoch.append(y)
+    acc_fig.add_vrect(x0=inter[0][0]/ fps, x1=inter[0][1]/ fps, fillcolor='blue', opacity=0.6, layer='below', line_width=0)
 
 # plot the average and std of the epochs
 aggregate_epoch = np.array(aggregate_epoch)
 mean = np.mean(aggregate_epoch, axis=0)
-std = np.std(aggregate_epoch, axis=0)
 
 acc_interval_fig.add_trace(go.Scatter(
     x=x,
     y=mean,
     mode='lines',
+    name='mean signal',
     line=dict(color='blue', width=2, dash='solid')
 ))
 
+acc_interval_fig.add_vrect(x0=0, x1=duration, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+
+# plot the lines
+acc_interval_fig_off = go.Figure()
+aggregate_epoch = []
+for i, inter in enumerate(epochs_acc_off):
+    x = np.arange(-duration, duration, 1/fps)
+    y = inter[1]
+    acc_interval_fig_off.add_trace(go.Scatter(
+        x=x,
+        y=y,
+        mode='lines',
+        name=f'offset {i+1}',
+        line=dict(color='gray', width=1, dash='solid'),
+        opacity=0.5
+    ))
+    aggregate_epoch.append(y)
+
+# plot the average and std of the epochs
+aggregate_epoch = np.array(aggregate_epoch)
+mean = np.mean(aggregate_epoch, axis=0)
+
+acc_interval_fig_off.add_trace(go.Scatter(
+    x=x,
+    y=mean,
+    mode='lines',
+    name='mean signal',
+    line=dict(color='blue', width=2, dash='solid')
+))
+
+acc_interval_fig_off.add_vrect(x0=-duration, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
 # Create the ADN graph
 adn_fig = go.Figure()
-
+x = np.arange(0, len(mergeddataset)/fps, 1/fps)
 adn_fig.add_trace(go.Scatter(
-    x=mergeddataset.index,
+    x=x,
     y=mergeddataset['ADN.signal'],
     mode='lines',
     name='ADN Signal',
@@ -113,7 +143,7 @@ adn_fig.add_trace(go.Scatter(
 ))
 
 adn_fig.add_trace(go.Scatter(
-    x=mergeddataset.index,
+    x=x,
     y=mergeddataset['ADN.control'],
     mode='lines',
     name='ADN Control',
@@ -122,7 +152,7 @@ adn_fig.add_trace(go.Scatter(
 ))
 
 adn_fig.add_trace(go.Scatter(
-    x=mergeddataset.index,
+    x=x,
     y=mergeddataset['ADN.zdFF'],
     mode='lines',
     name='ADN zdFF',
@@ -136,67 +166,121 @@ adn_fig.update_layout(
 )
 
 for on, off in intervals:
+    on = on / fps
+    off = off / fps
     adn_fig.add_vrect(x0=on, x1=off, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
 
 # plot the lines
 adn_interval_fig = go.Figure()
 aggregate_epoch = []
-for inter in epochs:
-    if inter[0] < 0 or inter[1] > len(mergeddataset):
-        continue
-    else:
-        x = np.arange(-fps*1.5, fps*1.5)
-        y = mergeddataset['ADN.signal'][inter[0]:inter[1]]
-        adn_interval_fig.add_trace(go.Scatter(
-            x=x,
-            y=y,
-            mode='lines',
-            line=dict(color='gray', width=1, dash='solid'),
-            opacity=0.5
-        ))
-        aggregate_epoch.append(y)
+for i, inter in enumerate(epochs_adn):
+    x = np.arange(-duration, duration, 1/fps)
+    y = inter[1]
+    adn_interval_fig.add_trace(go.Scatter(
+        x=x,
+        y=y,
+        mode='lines',
+        name=f'onset {i+1}',
+        line=dict(color='gray', width=1, dash='solid'),
+        opacity=0.5
+    ))
+    aggregate_epoch.append(y)
+    print(inter[0][0]/ fps, inter[0][1]/ fps)
+    adn_fig.add_vrect(x0=inter[0][0]/ fps, x1=inter[0][1]/ fps, fillcolor='blue', opacity=0.6, layer='below', line_width=0)
 
 # plot the average and std of the epochs
 aggregate_epoch = np.array(aggregate_epoch)
 mean = np.mean(aggregate_epoch, axis=0)
-std = np.std(aggregate_epoch, axis=0)
-
 adn_interval_fig.add_trace(go.Scatter(
     x=x,
     y=mean,
     mode='lines',
+    name='mean signal',
     line=dict(color='blue', width=2, dash='solid')
 ))
+adn_interval_fig.add_vrect(x0=0, x1=duration, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+
+# plot the lines
+adn_interval_fig_off = go.Figure()
+aggregate_epoch = []
+for i, inter in enumerate(epochs_adn_off):
+    x = np.arange(-duration, duration, 1/fps)
+    y = inter[1]
+    adn_interval_fig_off.add_trace(go.Scatter(
+        x=x,
+        y=y,
+        mode='lines',
+        name=f'offset {i+1}',
+        line=dict(color='gray', width=1, dash='solid'),
+        opacity=0.5
+    ))
+    aggregate_epoch.append(y)
+
+# plot the average and std of the epochs
+aggregate_epoch = np.array(aggregate_epoch)
+mean = np.mean(aggregate_epoch, axis=0)
+adn_interval_fig_off.add_trace(go.Scatter(
+    x=x,
+    y=mean,
+    mode='lines',
+    name='mean signal',
+    line=dict(color='blue', width=2, dash='solid')
+))
+adn_interval_fig_off.add_vrect(x0=-duration, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+
 
 acc_fig.update_layout({
 'plot_bgcolor': 'rgba(0, 0, 0, 0)',
 'paper_bgcolor': 'rgba(0, 0, 0, 0)',
+'xaxis_title': 'Time (s)',
+'yaxis_title': 'Normalized photometry signal',
+})
+acc_interval_fig_off.update_layout({
+'paper_bgcolor': 'rgba(0, 0, 0, 0)',
+'plot_bgcolor': 'rgba(10, 10, 10, 0.02)',
+'xaxis_title': 'Time (s)',
+'yaxis_title': 'Normalized photometry signal',
 })
 adn_fig.update_layout({
 'plot_bgcolor': 'rgba(0, 0, 0, 0)',
 'paper_bgcolor': 'rgba(0, 0, 0, 0)',
+'xaxis_title': 'Time (s)',
+'yaxis_title': 'Normalized photometry signal',
 })
 acc_interval_fig.update_layout({
 'paper_bgcolor': 'rgba(0, 0, 0, 0)',
 'plot_bgcolor': 'rgba(10, 10, 10, 0.02)',
+'xaxis_title': 'Time (s)',
+'yaxis_title': 'Normalized photometry signal',
 })
 adn_interval_fig.update_layout({
 'paper_bgcolor': 'rgba(0, 0, 0, 0)',
 'plot_bgcolor': 'rgba(10, 10, 10, 0.02)',
+'xaxis_title': 'Time (s)',
+'yaxis_title': 'Normalized photometry signal',
 })
-
+adn_interval_fig_off.update_layout({
+'paper_bgcolor': 'rgba(0, 0, 0, 0)',
+'plot_bgcolor': 'rgba(10, 10, 10, 0.02)',
+'xaxis_title': 'Time (s)',
+'yaxis_title': 'Normalized photometry signal',
+})
 
 # add the two figures to a dashboard
 app.layout = html.Div([
     html.Div([
         dcc.Graph(figure=acc_fig),
         dcc.Graph(figure=adn_fig),
-    ], style={'width': '65%', 'display': 'inline-block', 'vertical-align': 'top'}),
+    ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'}),
     html.Div([
         dcc.Graph(figure=acc_interval_fig),
         dcc.Graph(figure=adn_interval_fig),
-    ], style={'width': '35%', 'display': 'inline-block', 'vertical-align': 'top'})
+    ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top'}),
+    html.Div([
+        dcc.Graph(figure=acc_interval_fig_off),
+        dcc.Graph(figure=adn_interval_fig_off),
+    ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top'})
 ])
 
 # make a layout for the dashboard 
