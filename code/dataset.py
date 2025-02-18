@@ -3,6 +3,7 @@ import numpy as np
 import os
 from scipy.ndimage import convolve1d
 from scipy.signal import butter, filtfilt
+import sys
 
 class PhotometryDataset:
     """
@@ -115,8 +116,14 @@ class MergeDatasets:
 
 # --- Dynamic Data Loading for Multiple Mice ---
 
-base_dir = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.path.join(base_dir, "../data")
+if getattr(sys, 'frozen', False):
+    # Running as an executable
+    base_path = sys._MEIPASS
+else:
+    # Running as a script
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+data_dir = os.path.join(base_path, "data")
 
 # Auto-detect all mouse folders
 mouse_folders = [f for f in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, f))]
