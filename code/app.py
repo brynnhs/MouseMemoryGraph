@@ -43,12 +43,12 @@ def load_data():
 # Initial data load
 load_data()
 
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, assets_folder='../assets')
 
 # Layout with Tabs on the left and Reprocess Button below
 app.layout = html.Div([
     html.Div([
-        html.Img(src='/assets/header.png', style={'width': '100%', 'height': 'auto'})
+        html.Img(src='assets/header.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-bottom': '10px'}),
 
     html.Div([
@@ -64,7 +64,7 @@ app.layout = html.Div([
     ], style={'display': 'flex'}),
 
     html.Div([
-        html.Img(src='/assets/footer.png', style={'width': '100%', 'height': 'auto'})
+        html.Img(src='assets/footer.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-top': '10px'})
 ])
 
