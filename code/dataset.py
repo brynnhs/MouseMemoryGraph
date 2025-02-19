@@ -263,20 +263,27 @@ class MergeDatasets():
         max = self.df.index[-1]
 
         # filter out epochs where the difference between their onsets is less than twice the epoch duration
-        diff = np.diff([on for on, off in intervals])
+        if type == 'on':
+            diff = np.diff([on for on, off in intervals])
+        elif type == 'off':
+            diff = np.diff([off for on, off in intervals])
+        else:
+            # throw an error
+            print("Type not recognized")
+
         diff = np.insert(diff, 0, 0)
         intervals = [intervals[i] for i in range(len(intervals)) if diff[i] > 2 * frames]
 
         if type == 'on':
-            epochs = [(int(on-frames), int(on+frames)) for on, off in intervals  if off - on > frames]
+            epochs = [((int(on-frames), int(on+frames)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames]
         elif type == 'off':
-            epochs = [(int(off-frames), int(off+frames)) for on, off in intervals  if off - on > frames]
+            epochs = [((int(off-frames), int(off+frames)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames]
         else:
             # throw an error
             print("Type not recognized")
         #filter out epochs that are out of bounds
-        epochs = [(beg, end) for beg, end in epochs if beg > 0 and end < max]
-        epochs = [[(beg, end), self.df[column+'.zdFF'][beg:end]] for beg, end in epochs]
+        epochs = [((beg, end), inter) for (beg, end), inter in epochs if beg > 0 and end < max]
+        epochs = [[(beg, end), inter, self.df[column+'.zdFF'][beg:end]] for (beg, end), inter in epochs]
         
         return epochs
 
@@ -298,6 +305,6 @@ print(merged.df['Time(s)'].iloc[0], merged.df['Time(s)'].iloc[-1])
 
 intervals = merged.get_freezing_intervals()
 print(intervals)
-epochs = merged.get_epoch_data(intervals, 'ACC')
+epochs = merged.get_epoch_data(intervals, 'ACC', type='off')
 print(epochs)
 
