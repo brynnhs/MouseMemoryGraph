@@ -18,7 +18,7 @@ merged = MergeDatasets(photometry, behavior)
 # Load your dataset
 mergeddataset = merged.df
 fps = merged.fps
-duration = 1
+duration = 3
 intervals = merged.get_freezing_intervals()
 epochs_acc = merged.get_epoch_data(intervals, 'ACC', duration=duration)
 epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', duration=duration, type='off')
@@ -62,6 +62,23 @@ acc_fig.update_layout(
     yaxis_title='Value',
 )
 
+# add dummy trace
+acc_fig.add_trace(go.Scatter(
+    x=[None],
+    y=[None],
+    mode='markers',
+    name=f'freezing bouts > {duration}s',
+    marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
+))
+
+acc_fig.add_trace(go.Scatter(
+    x=[None],
+    y=[None],
+    mode='markers',
+    name=f'freezing bouts < {duration}s',
+    marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
+))
+
 # from the freezing array find the onsets and offsets which is the change from 0 to 1 and 1 to 0
 
 for on, off in intervals:
@@ -74,7 +91,7 @@ acc_interval_fig = go.Figure()
 aggregate_epoch = []
 for i, inter in enumerate(epochs_acc):
     x = np.arange(-duration, duration, 1/fps)
-    y = inter[1]
+    y = inter[2]
     acc_interval_fig.add_trace(go.Scatter(
         x=x,
         y=y,
@@ -84,11 +101,14 @@ for i, inter in enumerate(epochs_acc):
         opacity=0.5
     ))
     aggregate_epoch.append(y)
-    acc_fig.add_vrect(x0=inter[0][0]/ fps, x1=inter[0][1]/ fps, fillcolor='blue', opacity=0.6, layer='below', line_width=0)
+    acc_fig.add_vrect(x0=inter[1][0]/ fps, x1=inter[1][1]/ fps, fillcolor='blue', opacity=0.2, layer='below', line_width=0)
 
 # plot the average and std of the epochs
 aggregate_epoch = np.array(aggregate_epoch)
 mean = np.mean(aggregate_epoch, axis=0)
+std = np.std(aggregate_epoch, axis=0)
+y_upper = mean + std
+y_lower = mean - std
 
 acc_interval_fig.add_trace(go.Scatter(
     x=x,
@@ -97,6 +117,22 @@ acc_interval_fig.add_trace(go.Scatter(
     name='mean signal',
     line=dict(color='blue', width=2, dash='solid')
 ))
+acc_interval_fig.add_trace(go.Scatter(
+        x=x,
+        y=y_upper,
+        #fill='tonexty',
+        hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'),
+        showlegend=False))
+acc_interval_fig.add_trace(go.Scatter(
+        x=x,
+        y=y_lower,
+        fill='tonexty',
+        hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'),
+        showlegend=False))
 
 acc_interval_fig.add_vrect(x0=0, x1=duration, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
@@ -105,7 +141,7 @@ acc_interval_fig_off = go.Figure()
 aggregate_epoch = []
 for i, inter in enumerate(epochs_acc_off):
     x = np.arange(-duration, duration, 1/fps)
-    y = inter[1]
+    y = inter[2]
     acc_interval_fig_off.add_trace(go.Scatter(
         x=x,
         y=y,
@@ -119,6 +155,9 @@ for i, inter in enumerate(epochs_acc_off):
 # plot the average and std of the epochs
 aggregate_epoch = np.array(aggregate_epoch)
 mean = np.mean(aggregate_epoch, axis=0)
+std = np.std(aggregate_epoch, axis=0)
+y_upper = mean + std
+y_lower = mean - std
 
 acc_interval_fig_off.add_trace(go.Scatter(
     x=x,
@@ -127,6 +166,22 @@ acc_interval_fig_off.add_trace(go.Scatter(
     name='mean signal',
     line=dict(color='blue', width=2, dash='solid')
 ))
+acc_interval_fig_off.add_trace(go.Scatter(
+        x=x,
+        y=y_upper,
+        #fill='tonexty',
+        hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'),
+        showlegend=False))
+acc_interval_fig_off.add_trace(go.Scatter(
+        x=x,
+        y=y_lower,
+        fill='tonexty',
+        hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'),
+        showlegend=False))
 
 acc_interval_fig_off.add_vrect(x0=-duration, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
@@ -165,6 +220,23 @@ adn_fig.update_layout(
     yaxis_title='Value',
 )
 
+# add dummy trace
+adn_fig.add_trace(go.Scatter(
+    x=[None],
+    y=[None],
+    mode='markers',
+    name=f'freezing bouts > {duration}s',
+    marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
+))
+
+adn_fig.add_trace(go.Scatter(
+    x=[None],
+    y=[None],
+    mode='markers',
+    name=f'freezing bouts < {duration}s',
+    marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
+))
+
 for on, off in intervals:
     on = on / fps
     off = off / fps
@@ -176,7 +248,7 @@ adn_interval_fig = go.Figure()
 aggregate_epoch = []
 for i, inter in enumerate(epochs_adn):
     x = np.arange(-duration, duration, 1/fps)
-    y = inter[1]
+    y = inter[2]
     adn_interval_fig.add_trace(go.Scatter(
         x=x,
         y=y,
@@ -186,12 +258,15 @@ for i, inter in enumerate(epochs_adn):
         opacity=0.5
     ))
     aggregate_epoch.append(y)
-    print(inter[0][0]/ fps, inter[0][1]/ fps)
-    adn_fig.add_vrect(x0=inter[0][0]/ fps, x1=inter[0][1]/ fps, fillcolor='blue', opacity=0.6, layer='below', line_width=0)
+    adn_fig.add_vrect(x0=inter[1][0]/ fps, x1=inter[1][1]/ fps, fillcolor='blue', opacity=0.2, layer='below', line_width=0)
 
 # plot the average and std of the epochs
 aggregate_epoch = np.array(aggregate_epoch)
 mean = np.mean(aggregate_epoch, axis=0)
+std = np.std(aggregate_epoch, axis=0)
+y_upper = mean + std
+y_lower = mean - std
+
 adn_interval_fig.add_trace(go.Scatter(
     x=x,
     y=mean,
@@ -199,6 +274,22 @@ adn_interval_fig.add_trace(go.Scatter(
     name='mean signal',
     line=dict(color='blue', width=2, dash='solid')
 ))
+adn_interval_fig.add_trace(go.Scatter(
+        x=x,
+        y=y_upper,
+        #fill='tonexty',
+        hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'),
+        showlegend=False))
+adn_interval_fig.add_trace(go.Scatter(
+        x=x,
+        y=y_lower,
+        fill='tonexty',
+        hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'),
+        showlegend=False))
 adn_interval_fig.add_vrect(x0=0, x1=duration, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
 # plot the lines
@@ -206,7 +297,7 @@ adn_interval_fig_off = go.Figure()
 aggregate_epoch = []
 for i, inter in enumerate(epochs_adn_off):
     x = np.arange(-duration, duration, 1/fps)
-    y = inter[1]
+    y = inter[2]
     adn_interval_fig_off.add_trace(go.Scatter(
         x=x,
         y=y,
@@ -220,6 +311,11 @@ for i, inter in enumerate(epochs_adn_off):
 # plot the average and std of the epochs
 aggregate_epoch = np.array(aggregate_epoch)
 mean = np.mean(aggregate_epoch, axis=0)
+std = np.std(aggregate_epoch, axis=0)
+y_upper = mean + std
+y_lower = mean - std
+
+
 adn_interval_fig_off.add_trace(go.Scatter(
     x=x,
     y=mean,
@@ -227,6 +323,22 @@ adn_interval_fig_off.add_trace(go.Scatter(
     name='mean signal',
     line=dict(color='blue', width=2, dash='solid')
 ))
+adn_interval_fig_off.add_trace(go.Scatter(
+        x=x,
+        y=y_upper,
+        #fill='tonexty',
+        hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'),
+        showlegend=False))
+adn_interval_fig_off.add_trace(go.Scatter(
+        x=x,
+        y=y_lower,
+        fill='tonexty',
+        hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'),
+        showlegend=False))
 adn_interval_fig_off.add_vrect(x0=-duration, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
 

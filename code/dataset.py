@@ -213,6 +213,7 @@ class BehaviorDataset():
         kernel = np.ones(10)
         head_freezing = convolve1d(head_freezing, kernel, mode='constant')
         return head_freezing > 2
+
     
 
 class MergeDatasets():
@@ -246,11 +247,27 @@ class MergeDatasets():
         self.df = self.df[self.df['AOut-1'] != 0]
         self.df = self.df.reset_index()
 
-    def get_freezing_intervals(self):
+    def get_freezing_intervals(self, merge_range=1):
+        """
+        Get freezing intervals. Merge intervals that are within merge_range seconds of each other.
+        """
         onsets = self.df[self.df['freezing'].diff() == 1].index
         offsets = self.df[self.df['freezing'].diff() == -1].index
         intervals = list(zip(onsets, offsets))
-        return intervals
+
+        # merge intervals that are within merge_range seconds of each other
+        merged = [intervals[0]]
+        threshold = merge_range * self.fps
+
+        for start, end in intervals[1:]:
+            last_start, last_end = merged[-1]
+            # If the gap is less than threshold, merge the intervals
+            if start - last_end < threshold:
+                merged[-1] = (last_start, max(last_end, end))
+            else:
+                merged.append((start, end))
+
+        return merged
     
     def get_epoch_data(self, intervals, column, duration=1, type='on'):
         """
@@ -272,7 +289,7 @@ class MergeDatasets():
             print("Type not recognized")
 
         diff = np.insert(diff, 0, 0)
-        intervals = [intervals[i] for i in range(len(intervals)) if diff[i] > 2 * frames]
+        #intervals = [intervals[i] for i in range(len(intervals)) if diff[i] > 2 * frames]
 
         if type == 'on':
             epochs = [((int(on-frames), int(on+frames)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames]
