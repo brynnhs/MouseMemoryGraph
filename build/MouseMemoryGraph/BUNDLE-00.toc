@@ -1,3 +1,0 @@
-([('MouseMemoryGraph',
-   '/Users/brynnharrisshanks/Documents/GitHub/MouseMemoryGraph/dist/MouseMemoryGraph',
-   'EXECUTABLE')],)
