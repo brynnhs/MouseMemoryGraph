@@ -340,17 +340,9 @@ for mouse in mouse_folders:
 print(f"Loaded data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
 df = photometry.normalize_signal()
-print(df.head())
-print(df['Time(s)'])
-print(behavior.df.head())
 
 merged = MergeDatasets(photometry, behavior)
-print(merged.df.head())
-
-#start an end time
-print(merged.df['Time(s)'].iloc[0], merged.df['Time(s)'].iloc[-1])
 
 intervals = merged.get_freezing_intervals()
-print(intervals)
+
 epochs = merged.get_epoch_data(intervals, 'ACC', type='off')
-print(epochs)

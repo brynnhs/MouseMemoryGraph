@@ -9,6 +9,7 @@ from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 import sys
 import time
 import webbrowser
+import pickle
 
 if getattr(sys, 'frozen', False):
     # Running as an executable
@@ -20,25 +21,46 @@ else:
 data_dir = os.path.join(base_path, "../data")  # Go to root of MouseMemoryGraph
 data_dir = os.path.abspath(data_dir)
 
-# Function to dynamically load mouse data
+cache_file = "mouse_cache.pkl"  # File to store cache data
+
+# Try to load cached data from disk
+try:
+    with open(cache_file, "rb") as f:
+        cache = pickle.load(f)
+    print("Cache loaded successfully.")
+except (FileNotFoundError, EOFError):
+    cache = {}  # Initialize an empty cache if no file exists
+
 def load_data():
-    """ Function to scan and load datasets dynamically, including newly added mice """
+    """ Load datasets dynamically and use cache to avoid redundant processing """
     global mouse_data, mouse_folders
     mouse_data = {}
-    
-    # Dynamically detect available mouse folders
-    mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
-    
-    for mouse in mouse_folders:
-        photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
-        behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
 
-        if os.path.exists(photometry_path) and os.path.exists(behavior_path):
-            photometry = PhotometryDataset(photometry_path)
-            behavior = BehaviorDataset(behavior_path)
-            photometry.normalize_signal()
-            merged = MergeDatasets(photometry, behavior)
-            mouse_data[mouse] = merged
+    # Detect available mouse folders
+    mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
+
+    for mouse in mouse_folders:
+        if mouse in cache:  # ✅ Use cached data if available
+            print(f"Loading cached data for: {mouse}")
+            mouse_data[mouse] = cache[mouse]
+        else:
+            print(f"Processing data for: {mouse}")
+            photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
+            behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
+
+            if os.path.exists(photometry_path) and os.path.exists(behavior_path):
+                photometry = PhotometryDataset(photometry_path)
+                behavior = BehaviorDataset(behavior_path)
+                photometry.normalize_signal()
+                merged = MergeDatasets(photometry, behavior)
+
+                mouse_data[mouse] = merged  # Store processed data
+                cache[mouse] = merged  # ✅ Save to cache
+
+    # Save cache to disk after processing
+    with open(cache_file, "wb") as f:
+        pickle.dump(cache, f)
+    print("Cache updated and saved.")
 
 # Initial data load
 load_data()
@@ -68,14 +90,13 @@ app.layout = html.Div([
     ], style={'text-align': 'center', 'margin-top': '10px'})
 ])
 
-# Callback to update tabs when reprocessing is triggered
 @app.callback(
     [Output('tabs', 'children'), Output('tabs', 'value')],
     Input('reprocess-btn', 'n_clicks')
 )
 def update_tabs(n_clicks):
     """ Update the list of tabs when reprocessing is triggered """
-    load_data()  # Reload all available mouse data, including new mice
+    load_data()  # Reload available mouse data (using cache when possible)
     
     if not mouse_data:
         return ["No data available"], None
@@ -83,7 +104,6 @@ def update_tabs(n_clicks):
     tabs = [dcc.Tab(label=f"Mouse {mouse}", value=mouse) for mouse in mouse_data]
     return tabs, list(mouse_data.keys())[0]  # Ensure a mouse is selected
 
-# Callback to update plots and handle reprocessing
 @app.callback(
     Output('tab-content', 'children'),
     [Input('tabs', 'value'), Input('reprocess-btn', 'n_clicks')]
@@ -92,9 +112,9 @@ def update_tab(selected_mouse, n_clicks):
     if not selected_mouse or selected_mouse not in mouse_data:
         return "No data available."
 
-    print(f"Processing data for: {selected_mouse}")
+    print(f"Loading data for: {selected_mouse}")
 
-    merged = mouse_data[selected_mouse]#.copy()
+    merged = mouse_data[selected_mouse]  # ✅ Load from cache
     mergeddataset = merged.df
     duration = 3
     fps = merged.fps
@@ -105,29 +125,10 @@ def update_tab(selected_mouse, n_clicks):
     epochs_adn = merged.get_epoch_data(intervals, 'ADN', duration=duration)
     epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', duration=duration, type='off')
 
-    
-
     # ✅ Generate Plots
     acc, acc_interval_on, acc_interval_off = generate_plots(mergeddataset, intervals, fps, duration, epochs_acc, epochs_acc_off, name='ACC')
     adn, adn_interval_on, adn_interval_off = generate_plots(mergeddataset, intervals, fps, duration, epochs_adn, epochs_adn_off, name='ADN')
 
-    # Plots background and axis
-    for plot in [acc, adn]:
-        plot.update_layout({
-            'plot_bgcolor': 'rgba(0, 0, 0, 0)',
-            'paper_bgcolor': 'rgba(0, 0, 0, 0)',
-            'xaxis_title': 'Time (s)',
-            'yaxis_title': 'Normalized photometry signal',
-            })
-        
-    for plot in [acc_interval_on, adn_interval_on, acc_interval_off, adn_interval_off]:
-        plot.update_layout({
-            'plot_bgcolor': 'rgba(0, 0, 0, 0)',
-            'paper_bgcolor': 'rgba(10, 10, 10, 0.02)',
-            'xaxis_title': 'Time (s)',
-            'yaxis_title': 'Normalized photometry signal'
-            })
-        
     return html.Div([
         html.Div([
             dcc.Graph(figure=acc),
