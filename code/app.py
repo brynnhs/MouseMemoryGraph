@@ -84,9 +84,11 @@ app.layout = html.Div([
     html.Div([
         dcc.Dropdown(
             id='mouse-dropdown',
-            options=[{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_folders] 
-                     if mouse_folders else [{"label": "No data available", "value": "None"}],
-            value=mouse_folders[0] if mouse_folders else "None",
+            options=(
+                [{"label": "Averaged Data", "value": "average"}] +
+                [{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_folders]
+            ) if mouse_folders else [{"label": "No data available", "value": "None"}],
+            value="average" if mouse_folders else "None",  # default to Averaged Data
             style={'width': '300px', 'margin': '0 auto'}
         ),
         html.Button(
@@ -127,22 +129,70 @@ def update_dropdown(n_clicks):
     
     if not mouse_data:
         return [{"label": "No data available", "value": "None"}], "None"
-    options = [{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_data]
-    # Select the first mouse by default
-    return options, list(mouse_data.keys())[0]
+    
+    # Include "Averaged Data" along with mouse-specific options
+    options = (
+        [{"label": "Averaged Data", "value": "average"}] +
+        [{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_data]
+    )
+    # Set default value to "average"
+    return options, "average"
 
-# Callback to update the content based on the selected mouse
 @app.callback(
     Output('tab-content', 'children'),
     [Input('mouse-dropdown', 'value'), Input('reprocess-btn', 'n_clicks')]
 )
-def update_tab(selected_mouse, n_clicks):
-    if not selected_mouse or selected_mouse not in mouse_data:
+def update_tab(selected_value, n_clicks):
+    if not selected_value or (selected_value != "average" and selected_value not in mouse_data):
         return "No data available."
 
-    print(f"Loading data for: {selected_mouse}")
+    # If "average" is selected, compute average epochs across all mice.
+    if selected_value == "average":
+        acc_on_epochs, acc_off_epochs = [], []
+        adn_on_epochs, adn_off_epochs = [], []
+        duration = 3  # seconds; you might also make this configurable
+        # Loop over every processed mouse
+        for merged in mouse_data.values():
+            intervals = merged.get_freezing_intervals()
+            fps = merged.fps  # assume all mice use the same fps
+            epochs_acc_on = merged.get_epoch_data(intervals, 'ACC', duration=duration)
+            epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', duration=duration, type='off')
+            epochs_adn_on = merged.get_epoch_data(intervals, 'ADN', duration=duration)
+            epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', duration=duration, type='off')
+            # Assume the third element in each epoch tuple is the data array.
+            for epoch in epochs_acc_on:
+                acc_on_epochs.append(epoch[2])
+            for epoch in epochs_acc_off:
+                acc_off_epochs.append(epoch[2])
+            for epoch in epochs_adn_on:
+                adn_on_epochs.append(epoch[2])
+            for epoch in epochs_adn_off:
+                adn_off_epochs.append(epoch[2])
+        
+        # Use fps from one of the mice (if available)
+        if mouse_data:
+            fps = next(iter(mouse_data.values())).fps
+        else:
+            fps = 100  # fallback
 
-    merged = mouse_data[selected_mouse]  # Load from cache
+        # Generate average plots for each sensor.
+        acc_on_fig, acc_off_fig = generate_average_plot("ACC", acc_on_epochs, acc_off_epochs, duration, fps)
+        adn_on_fig, adn_off_fig = generate_average_plot("ADN", adn_on_epochs, adn_off_epochs, duration, fps)
+
+        return html.Div([
+            html.Div([
+                dcc.Graph(figure=acc_on_fig),
+                dcc.Graph(figure=adn_on_fig)
+            ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'}),
+            html.Div([
+                dcc.Graph(figure=acc_off_fig),
+                dcc.Graph(figure=adn_off_fig)
+            ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'})
+        ])
+
+    # Otherwise, if a specific mouse is selected, use your existing logic:
+    print(f"Loading data for: {selected_value}")
+    merged = mouse_data[selected_value]
     mergeddataset = merged.df
     duration = 3
     fps = merged.fps
@@ -292,6 +342,68 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
     interval_off.update_layout(title='Signal around event offset', xaxis_title='Time (s)', yaxis_title='Signal')
 
     return fig, interval_on, interval_off
+
+def generate_average_plot(sensor, epochs_on, epochs_off, duration, fps):
+    """Create average epoch plots for onsets and offsets of the given sensor."""
+    x = np.arange(-duration, duration, 1/fps)
+    
+    # Onset plot
+    fig_on = go.Figure()
+    if epochs_on:
+        arr = np.array(epochs_on)
+        mean_on = np.mean(arr, axis=0)
+        std_on = np.std(arr, axis=0)
+        fig_on.add_trace(go.Scatter(x=x, y=mean_on, mode='lines', name='Mean'))
+        fig_on.add_trace(go.Scatter(
+            x=x, y=mean_on+std_on,
+            mode='lines',
+            line=dict(color='lightblue'),
+            showlegend=False,
+            hoverinfo="skip"
+        ))
+        fig_on.add_trace(go.Scatter(
+            x=x, y=mean_on-std_on,
+            mode='lines',
+            fill='tonexty',
+            line=dict(color='lightblue'),
+            showlegend=False,
+            hoverinfo="skip"
+        ))
+    fig_on.update_layout(
+        title=f'{sensor} Onset Average Epoch',
+        xaxis_title='Time (s)',
+        yaxis_title='Signal'
+    )
+    
+    # Offset plot
+    fig_off = go.Figure()
+    if epochs_off:
+        arr = np.array(epochs_off)
+        mean_off = np.mean(arr, axis=0)
+        std_off = np.std(arr, axis=0)
+        fig_off.add_trace(go.Scatter(x=x, y=mean_off, mode='lines', name='Mean'))
+        fig_off.add_trace(go.Scatter(
+            x=x, y=mean_off+std_off,
+            mode='lines',
+            line=dict(color='lightblue'),
+            showlegend=False,
+            hoverinfo="skip"
+        ))
+        fig_off.add_trace(go.Scatter(
+            x=x, y=mean_off-std_off,
+            mode='lines',
+            fill='tonexty',
+            line=dict(color='lightblue'),
+            showlegend=False,
+            hoverinfo="skip"
+        ))
+    fig_off.update_layout(
+        title=f'{sensor} Offset Average Epoch',
+        xaxis_title='Time (s)',
+        yaxis_title='Signal'
+    )
+    
+    return fig_on, fig_off
 
 if __name__ == '__main__':
     # Give the server a moment to start before opening the browser
