@@ -11,7 +11,7 @@ import webbrowser
 import dash_daq as daq
 from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 
-# Determine the base path (works both for script and executable)
+# Determine the base path (works for script and executable)
 if getattr(sys, 'frozen', False):
     base_path = sys._MEIPASS
 else:
@@ -21,67 +21,51 @@ data_dir = os.path.join(base_path, "../data")
 data_dir = os.path.abspath(data_dir)
 
 # Global containers:
-# mouse_data will store the raw (merged) data for each mouse.
-# graph_cache will store the processed figures.
+# mouse_data stores raw (merged) data per mouse.
+# graph_cache caches generated figures.
 mouse_data = {}
 graph_cache = {}
 
 def load_raw_data():
-    """Load raw merged data for all mice and store in mouse_data."""
+    """Load raw merged data for all mouse folders."""
     global mouse_data
     mouse_data = {}
-    
-    # Detect available mouse folders
     mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
     print("Found mouse folders:", mouse_folders)
-    
     for folder in mouse_folders:
         photometry_path = os.path.join(data_dir, folder, "cfc_2046.csv")
         behavior_path = os.path.join(data_dir, folder, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
-        
-        # Check if both CSV files exist
-        photometry_exists = os.path.exists(photometry_path)
-        behavior_exists = os.path.exists(behavior_path)
-        print(f"Checking folder '{folder}': photometry={photometry_exists}, behavior={behavior_exists}")
-        
-        if photometry_exists and behavior_exists:
-            # Load and merge
+        if os.path.exists(photometry_path) and os.path.exists(behavior_path):
             photometry = PhotometryDataset(photometry_path)
             behavior = BehaviorDataset(behavior_path)
             photometry.normalize_signal()
             merged = MergeDatasets(photometry, behavior)
-            # Store the merged data under the actual folder name
             mouse_data[folder] = merged
         else:
-            print(f"  -> Skipping '{folder}' because required CSVs are missing.")
-    
-    print(f"Loaded raw data for {len(mouse_data)} valid folder(s): {list(mouse_data.keys())}")
+            print(f"Skipping '{folder}' because required CSV files are missing.")
+    print(f"Loaded raw data for {len(mouse_data)} folder(s):", list(mouse_data.keys()))
 
 # Initial load of raw data
 load_raw_data()
 
 app = dash.Dash(__name__, assets_folder='../assets')
 
-# Main dashboard layout
+# Main layout: header, dropdown/reprocess, dynamic graph content, color editor panel, and footer.
 app.layout = html.Div([
-    # Header image
+    # Header
     html.Div([
         html.Img(src='assets/header.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-bottom': '10px'}),
     
-    # Dropdown and reprocess button
+    # Dropdown and Reprocess button
     html.Div([
         dcc.Dropdown(
             id='mouse-dropdown',
-            # Build the dropdown from the valid folders in mouse_data
             options=(
                 [{"label": "Averaged Data", "value": "average"}] +
                 [
-                    {
-                        "label": f"Mouse {folder[len('mouse'):]}" if folder.lower().startswith("mouse")
-                                 else f"Mouse {folder}",
-                        "value": folder
-                    }
+                    {"label": f"Mouse {folder[len('mouse'):]}" if folder.lower().startswith("mouse")
+                     else f"Mouse {folder}", "value": folder}
                     for folder in mouse_data
                 ]
             ) if mouse_data else [{"label": "No data available", "value": "None"}],
@@ -93,21 +77,21 @@ app.layout = html.Div([
             id="reprocess-btn", 
             n_clicks=0,
             style={
-                'width': '150px', 
-                'margin-top': '10px', 
+                'width': '150px',
+                'margin-top': '10px',
                 'padding': '10px',
-                'background-color': 'red', 
+                'background-color': 'red',
                 'color': 'white',
-                'border': 'none', 
+                'border': 'none',
                 'cursor': 'pointer'
             }
         )
     ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
     
-    # Main content area for graphs
+    # Dynamic graph content: two columns
     html.Div(id='tab-content'),
     
-    # Color editor panel
+    # Color editor panel (for full-signal graphs only)
     html.Div([
         html.H3("Color Editor for Full-Signal Graphs"),
         html.Div([
@@ -146,15 +130,16 @@ app.layout = html.Div([
                 value={"hex": "#FF0000"}
             )
         ], style={'width': '300px', 'margin': '20px auto'})
-    ], style={'border': '1px solid #ccc', 'padding': '10px', 'width': '320px', 'margin': '20px auto', 'text-align': 'center'}),
+    ], style={'border': '1px solid #ccc', 'padding': '10px', 'width': '320px',
+              'margin': '20px auto', 'text-align': 'center'}),
     
-    # Footer image
+    # Footer
     html.Div([
         html.Img(src='assets/footer.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-top': '10px'})
 ])
 
-# Reprocess callback
+# Callback to update the dropdown on reprocess.
 @app.callback(
     [Output('mouse-dropdown', 'options'), Output('mouse-dropdown', 'value')],
     Input('reprocess-btn', 'n_clicks')
@@ -162,80 +147,22 @@ app.layout = html.Div([
 def update_dropdown(n_clicks):
     global graph_cache
     if n_clicks and n_clicks > 0:
-        # Reload raw data and clear cached graphs
         load_raw_data()
         graph_cache = {}
-        print("Raw data reloaded and processed graphs cache cleared.")
-    
+        print("Raw data reloaded and graph cache cleared.")
     if not mouse_data:
         return [{"label": "No data available", "value": "None"}], "None"
-    
     options = (
         [{"label": "Averaged Data", "value": "average"}] +
         [
-            {
-                "label": f"Mouse {folder[len('mouse'):]}" if folder.lower().startswith("mouse")
-                         else f"Mouse {folder}",
-                "value": folder
-            }
+            {"label": f"Mouse {folder[len('mouse'):]}" if folder.lower().startswith("mouse")
+             else f"Mouse {folder}", "value": folder}
             for folder in mouse_data
         ]
     )
     return options, "average"
 
-# Generate average plots (unchanged from your code)
-def generate_average_plot(sensor, epochs_on, epochs_off, duration, fps):
-    # ... same logic as before ...
-    x = np.arange(-duration, duration, 1/fps)
-    fig_on = go.Figure()
-    if len(epochs_on) > 0:
-        arr = np.array(epochs_on)
-        mean_on = np.mean(arr, axis=0)
-        std_on = np.std(arr, axis=0)
-        fig_on.add_trace(go.Scatter(x=x, y=mean_on, mode='lines', name='Mean'))
-        fig_on.add_trace(go.Scatter(
-            x=x, y=mean_on+std_on,
-            mode='lines',
-            line=dict(color='lightblue'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-        fig_on.add_trace(go.Scatter(
-            x=x, y=mean_on-std_on,
-            mode='lines',
-            fill='tonexty',
-            line=dict(color='lightblue'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-    fig_on.update_layout(title=f'{sensor} Onset Average Epoch', xaxis_title='Time (s)', yaxis_title='Signal')
-    
-    fig_off = go.Figure()
-    if len(epochs_off) > 0:
-        arr = np.array(epochs_off)
-        mean_off = np.mean(arr, axis=0)
-        std_off = np.std(arr, axis=0)
-        fig_off.add_trace(go.Scatter(x=x, y=mean_off, mode='lines', name='Mean'))
-        fig_off.add_trace(go.Scatter(
-            x=x, y=mean_off+std_off,
-            mode='lines',
-            line=dict(color='lightblue'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-        fig_off.add_trace(go.Scatter(
-            x=x, y=mean_off-std_off,
-            mode='lines',
-            fill='tonexty',
-            line=dict(color='lightblue'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-    fig_off.update_layout(title=f'{sensor} Offset Average Epoch', xaxis_title='Time (s)', yaxis_title='Signal')
-    
-    return fig_on, fig_off
-
-# The main callback that builds the graph content
+# Callback to build graph content based on dropdown selection.
 @app.callback(
     Output('tab-content', 'children'),
     [Input('mouse-dropdown', 'value')]
@@ -247,14 +174,9 @@ def update_tab(selected_value):
     if selected_value == "average":
         if not mouse_data:
             return "No data available."
-        
-        # Compute averaged data across all mice.
-        all_acc_signal = []
-        all_acc_control = []
-        all_acc_zdFF = []
-        all_adn_signal = []
-        all_adn_control = []
-        all_adn_zdFF = []
+        # Compute averages across all mice (full-signal only)
+        all_acc_signal, all_acc_control, all_acc_zdFF = [], [], []
+        all_adn_signal, all_adn_control, all_adn_zdFF = [], [], []
         for mouse, merged in mouse_data.items():
             df = merged.df
             all_acc_signal.append(df['ACC.signal'].values)
@@ -277,126 +199,105 @@ def update_tab(selected_value):
         avg_adn_zdFF   = np.mean(all_adn_zdFF, axis=0)
         length = len(avg_acc_signal)
         index = np.arange(length)
-        
-        # Build averaged ACC and ADN figures with same IDs
+        # Build averaged full-signal figures
         acc_fig = go.Figure()
-        acc_fig.add_trace(go.Scatter(
-            x=index,
-            y=avg_acc_signal,
-            mode='lines',
-            name='ACC Signal',
-            line=dict(color='gray', width=1),
-            opacity=0.5
-        ))
-        acc_fig.add_trace(go.Scatter(
-            x=index,
-            y=avg_acc_control,
-            mode='lines',
-            name='ACC Control',
-            line=dict(color='gray', width=1),
-            opacity=0.5
-        ))
-        acc_fig.add_trace(go.Scatter(
-            x=index,
-            y=avg_acc_zdFF,
-            mode='lines',
-            name='ACC zdFF',
-            line=dict(color='blue', width=2)
-        ))
+        acc_fig.add_trace(go.Scatter(x=index, y=avg_acc_signal, mode='lines', name='ACC Signal',
+                                     line=dict(color='gray', width=1), opacity=0.5))
+        acc_fig.add_trace(go.Scatter(x=index, y=avg_acc_control, mode='lines', name='ACC Control',
+                                     line=dict(color='gray', width=1), opacity=0.5))
+        acc_fig.add_trace(go.Scatter(x=index, y=avg_acc_zdFF, mode='lines', name='ACC zdFF',
+                                     line=dict(color='blue', width=2)))
         acc_fig.update_layout(title='Averaged ACC')
-        
         adn_fig = go.Figure()
-        adn_fig.add_trace(go.Scatter(
-            x=index,
-            y=avg_adn_signal,
-            mode='lines',
-            name='ADN Signal',
-            line=dict(color='gray', width=1),
-            opacity=0.5
-        ))
-        adn_fig.add_trace(go.Scatter(
-            x=index,
-            y=avg_adn_control,
-            mode='lines',
-            name='ADN Control',
-            line=dict(color='gray', width=1),
-            opacity=0.5
-        ))
-        adn_fig.add_trace(go.Scatter(
-            x=index,
-            y=avg_adn_zdFF,
-            mode='lines',
-            name='ADN zdFF',
-            line=dict(color='blue', width=2)
-        ))
+        adn_fig.add_trace(go.Scatter(x=index, y=avg_adn_signal, mode='lines', name='ADN Signal',
+                                     line=dict(color='gray', width=1), opacity=0.5))
+        adn_fig.add_trace(go.Scatter(x=index, y=avg_adn_control, mode='lines', name='ADN Control',
+                                     line=dict(color='gray', width=1), opacity=0.5))
+        adn_fig.add_trace(go.Scatter(x=index, y=avg_adn_zdFF, mode='lines', name='ADN zdFF',
+                                     line=dict(color='blue', width=2)))
         adn_fig.update_layout(title='Averaged ADN')
-        # Return the averaged figures with the same IDs so that color editing callbacks work.
-        return html.Div([
+        # For simplicity, we omit interval/epoch plots for averaged data.
+        full_signal_div = html.Div([
             dcc.Graph(id="acc-graph", figure=acc_fig),
             dcc.Graph(id="adn-graph", figure=adn_fig)
-        ])
+        ], style={'width': '65%', 'display': 'inline-block', 'vertical-align': 'top'})
+        interval_div = html.Div([
+            html.Div("Interval/Epoch plots not available for Averaged Data.", style={'text-align': 'center'})
+        ], style={'width': '35%', 'display': 'inline-block', 'vertical-align': 'top'})
+        return html.Div([full_signal_div, interval_div])
     
     else:
         if selected_value not in mouse_data:
-            return f"No data available for '{selected_value}'. Check that CSV files exist."
+            return f"No data available for '{selected_value}'."
         merged = mouse_data[selected_value]
         df = merged.df
+        # Full-signal graphs
         acc_fig = go.Figure()
-        acc_fig.add_trace(go.Scatter(
-            x=df.index,
-            y=df['ACC.signal'],
-            mode='lines',
-            name='ACC Signal',
-            line=dict(color='gray', width=1),
-            opacity=0.5
-        ))
-        acc_fig.add_trace(go.Scatter(
-            x=df.index,
-            y=df['ACC.control'],
-            mode='lines',
-            name='ACC Control',
-            line=dict(color='gray', width=1),
-            opacity=0.5
-        ))
-        acc_fig.add_trace(go.Scatter(
-            x=df.index,
-            y=df['ACC.zdFF'],
-            mode='lines',
-            name='ACC zdFF',
-            line=dict(color='blue', width=2)
-        ))
+        acc_fig.add_trace(go.Scatter(x=df.index, y=df['ACC.signal'], mode='lines', name='ACC Signal',
+                                     line=dict(color='gray', width=1), opacity=0.5))
+        acc_fig.add_trace(go.Scatter(x=df.index, y=df['ACC.control'], mode='lines', name='ACC Control',
+                                     line=dict(color='gray', width=1), opacity=0.5))
+        acc_fig.add_trace(go.Scatter(x=df.index, y=df['ACC.zdFF'], mode='lines', name='ACC zdFF',
+                                     line=dict(color='blue', width=2)))
         acc_fig.update_layout(title=f"ACC - {selected_value}")
         adn_fig = go.Figure()
-        adn_fig.add_trace(go.Scatter(
-            x=df.index,
-            y=df['ADN.signal'],
-            mode='lines',
-            name='ADN Signal',
-            line=dict(color='gray', width=1),
-            opacity=0.5
-        ))
-        adn_fig.add_trace(go.Scatter(
-            x=df.index,
-            y=df['ADN.control'],
-            mode='lines',
-            name='ADN Control',
-            line=dict(color='gray', width=1),
-            opacity=0.5
-        ))
-        adn_fig.add_trace(go.Scatter(
-            x=df.index,
-            y=df['ADN.zdFF'],
-            mode='lines',
-            name='ADN zdFF',
-            line=dict(color='blue', width=2)
-        ))
+        adn_fig.add_trace(go.Scatter(x=df.index, y=df['ADN.signal'], mode='lines', name='ADN Signal',
+                                     line=dict(color='gray', width=1), opacity=0.5))
+        adn_fig.add_trace(go.Scatter(x=df.index, y=df['ADN.control'], mode='lines', name='ADN Control',
+                                     line=dict(color='gray', width=1), opacity=0.5))
+        adn_fig.add_trace(go.Scatter(x=df.index, y=df['ADN.zdFF'], mode='lines', name='ADN zdFF',
+                                     line=dict(color='blue', width=2)))
         adn_fig.update_layout(title=f"ADN - {selected_value}")
-        return html.Div([
+        
+        # Interval/epoch graphs:
+        onsets = df[df['freezing'].diff() == 1].index
+        offsets = df[df['freezing'].diff() == -1].index
+        intervals = list(zip(onsets, offsets))
+        fps = merged.fps
+        epochs = [(int(on - fps*1.5), int(on + fps*1.5)) for on, off in intervals]
+        acc_interval_fig = go.Figure()
+        acc_epoch_list = []
+        for inter in epochs:
+            if inter[0] < 0 or inter[1] > len(df):
+                continue
+            else:
+                x_vals = np.arange(-fps*1.5, fps*1.5)
+                y_vals = df['ACC.signal'][inter[0]:inter[1]]
+                acc_interval_fig.add_trace(go.Scatter(x=x_vals, y=y_vals, mode='lines',
+                                                      line=dict(color='gray', width=1), opacity=0.5))
+                acc_epoch_list.append(y_vals)
+        if acc_epoch_list:
+            acc_epoch_array = np.array(acc_epoch_list)
+            mean_epoch = np.mean(acc_epoch_array, axis=0)
+            acc_interval_fig.add_trace(go.Scatter(x=x_vals, y=mean_epoch, mode='lines',
+                                                  line=dict(color='blue', width=2)))
+        adn_interval_fig = go.Figure()
+        adn_epoch_list = []
+        for inter in epochs:
+            if inter[0] < 0 or inter[1] > len(df):
+                continue
+            else:
+                x_vals = np.arange(-fps*1.5, fps*1.5)
+                y_vals = df['ADN.signal'][inter[0]:inter[1]]
+                adn_interval_fig.add_trace(go.Scatter(x=x_vals, y=y_vals, mode='lines',
+                                                      line=dict(color='gray', width=1), opacity=0.5))
+                adn_epoch_list.append(y_vals)
+        if adn_epoch_list:
+            adn_epoch_array = np.array(adn_epoch_list)
+            mean_epoch = np.mean(adn_epoch_array, axis=0)
+            adn_interval_fig.add_trace(go.Scatter(x=x_vals, y=mean_epoch, mode='lines',
+                                                  line=dict(color='blue', width=2)))
+        full_signal_div = html.Div([
             dcc.Graph(id="acc-graph", figure=acc_fig),
             dcc.Graph(id="adn-graph", figure=adn_fig)
-        ])
+        ], style={'width': '65%', 'display': 'inline-block', 'vertical-align': 'top'})
+        interval_div = html.Div([
+            dcc.Graph(id="acc-interval-graph", figure=acc_interval_fig),
+            dcc.Graph(id="adn-interval-graph", figure=adn_interval_fig)
+        ], style={'width': '35%', 'display': 'inline-block', 'vertical-align': 'top'})
+        return html.Div([full_signal_div, interval_div])
 
-# Callbacks for color editing
+# Callback to update the ACC full-signal graph color.
 @app.callback(
     Output("acc-graph", "figure"),
     [Input("acc-trace-selector", "value"), Input("acc-color-picker", "value")],
@@ -409,6 +310,7 @@ def update_acc_color(trace_idx, color_val, current_fig):
     current_fig["data"][trace_idx]["line"]["color"] = chosen_color
     return current_fig
 
+# Callback to update the ADN full-signal graph color.
 @app.callback(
     Output("adn-graph", "figure"),
     [Input("adn-trace-selector", "value"), Input("adn-color-picker", "value")],
