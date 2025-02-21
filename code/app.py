@@ -30,16 +30,23 @@ try:
 except (FileNotFoundError, EOFError):
     cache = {}  # Initialize an empty cache if no file exists
 
-def load_data():
+def load_data(force=False):
     """Load datasets dynamically and use cache to avoid redundant processing."""
-    global mouse_data, mouse_folders
-    mouse_data = {}
+    global mouse_data, mouse_folders, cache
 
+    if force:
+        # Clear the in-memory cache and delete the cache file
+        cache = {}
+        if os.path.exists(cache_file):
+            os.remove(cache_file)
+        print("Cache cleared; reprocessing all data.")
+
+    mouse_data = {}
     # Detect available mouse folders
     mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
 
     for mouse in mouse_folders:
-        if mouse in cache:  # Use cached data if available
+        if mouse in cache and not force:  # Use cache if available and not forcing reprocess
             print(f"Loading cached data for: {mouse}")
             mouse_data[mouse] = cache[mouse]
         else:
@@ -56,7 +63,7 @@ def load_data():
                 mouse_data[mouse] = merged  # Store processed data
                 cache[mouse] = merged  # Save to cache
 
-    # Save cache to disk after processing
+    # Save updated cache to disk
     with open(cache_file, "wb") as f:
         pickle.dump(cache, f)
     print("Cache updated and saved.")
@@ -107,13 +114,17 @@ app.layout = html.Div([
     ], style={'text-align': 'center', 'margin-top': '10px'})
 ])
 
-# Callback to update dropdown options when reprocessing is triggered
 @app.callback(
     [Output('mouse-dropdown', 'options'), Output('mouse-dropdown', 'value')],
     Input('reprocess-btn', 'n_clicks')
 )
 def update_dropdown(n_clicks):
-    load_data()  # Reload available mouse data (using cache when possible)
+    # Force reprocessing if the button has been clicked
+    if n_clicks and n_clicks > 0:
+        load_data(force=True)
+    else:
+        load_data(force=False)
+    
     if not mouse_data:
         return [{"label": "No data available", "value": "None"}], "None"
     options = [{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_data]
