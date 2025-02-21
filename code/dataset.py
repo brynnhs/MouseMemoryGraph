@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from scipy.ndimage import convolve1d
 from scipy.signal import butter, filtfilt
 from scipy.interpolate import interp1d
+import sys
+import os
 
 class PhotometryDataset():
     """
@@ -217,6 +219,7 @@ class BehaviorDataset():
     
 
 class MergeDatasets():
+    
     """
     Class for merging photometry and behavior data
     
@@ -238,6 +241,7 @@ class MergeDatasets():
         behavior.df['Time(s)'] = behavior.df['Time(s)'].round(2)
 
         self.df = pd.merge(photometry.df, behavior.df, on="Time(s)", how="outer")
+        self.fps = min(photometry.fps, behavior.fps)
         self.fps = min(photometry.fps, behavior.fps)
 
         # drop rows with NaN values
@@ -304,24 +308,42 @@ class MergeDatasets():
         
         return epochs
 
-    
-    
-photometry = PhotometryDataset("/Users/julian/Documents/daten/STUDIUM Master/FabLab 2025/raw data - 04 Feb/cfc_2046.csv")
-behavior = BehaviorDataset("/Users/julian/Documents/daten/STUDIUM Master/FabLab 2025/Codebase/MouseMemoryGraph/data/Mouse1/a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
+# --- Dynamic Data Loading for Multiple Mice ---
+
+if getattr(sys, 'frozen', False):
+    # Running as an executable
+    base_path = sys._MEIPASS
+else:
+    # Running as a script
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+data_dir = os.path.join(base_path, "../data")  # Go to root of MouseMemoryGraph
+data_dir = os.path.abspath(data_dir)
+
+# Auto-detect all mouse folders
+mouse_folders = [f for f in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, f))]
+
+# Dictionary to store datasets
+mouse_data = {}
+
+for mouse in mouse_folders:
+    photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
+    behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
+
+    if os.path.exists(photometry_path) and os.path.exists(behavior_path):
+        photometry = PhotometryDataset(photometry_path)
+        behavior = BehaviorDataset(behavior_path)
+        photometry.normalize_signal()
+        merged = MergeDatasets(photometry, behavior).df
+        mouse_data[mouse] = merged  # Store the merged dataframe
+
+# Print available mice for verification
+print(f"Loaded data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
 df = photometry.normalize_signal()
-print(df.head())
-print(df['Time(s)'])
-print(behavior.df.head())
 
 merged = MergeDatasets(photometry, behavior)
-print(merged.df.head())
-
-#start an end time
-print(merged.df['Time(s)'].iloc[0], merged.df['Time(s)'].iloc[-1])
 
 intervals = merged.get_freezing_intervals()
-print(intervals)
-epochs = merged.get_epoch_data(intervals, 'ACC', type='off')
-print(epochs)
 
+epochs = merged.get_epoch_data(intervals, 'ACC', type='off')
