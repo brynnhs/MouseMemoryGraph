@@ -217,37 +217,41 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
         ))
         aggregate_off.append(y_epoch)
     
+    # Compute mean & std for onsets
     aggregate_on = np.array(aggregate_on)
-    mean_on = np.mean(aggregate_on, axis=0)
-    std_on = np.std(aggregate_on, axis=0)
-    interval_on.add_trace(go.Scatter(
-        x=x_epoch, y=mean_on, mode='lines', name='mean signal', line=dict(color='blue', width=2, dash='solid')
-    ))
-    interval_on.add_trace(go.Scatter(
-        x=x_epoch, y=mean_on + std_on, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
-        line=dict(color='rgba(255,255,255,0)'), showlegend=False
-    ))
-    interval_on.add_trace(go.Scatter(
-        x=x_epoch, y=mean_on - std_on, fill='tonexty', hoverinfo="skip",
-        fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
-    ))
-    interval_on.add_vrect(x0=0, x1=duration, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-    
+    mean_on = np.mean(aggregate_on, axis=0) if len(aggregate_on) > 0 else None
+    if mean_on is not None:
+        std_on = np.std(aggregate_on, axis=0)
+        interval_on.add_trace(go.Scatter(
+            x=x_epoch, y=mean_on, mode='lines', name='mean signal', line=dict(color='blue', width=2, dash='solid')
+        ))
+        interval_on.add_trace(go.Scatter(
+            x=x_epoch, y=mean_on + std_on, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
+            line=dict(color='rgba(255,255,255,0)'), showlegend=False
+        ))
+        interval_on.add_trace(go.Scatter(
+            x=x_epoch, y=mean_on - std_on, fill='tonexty', hoverinfo="skip",
+            fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
+        ))
+        interval_on.add_vrect(x0=0, x1=duration, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+
+    # Compute mean & std for offsets
     aggregate_off = np.array(aggregate_off)
-    mean_off = np.mean(aggregate_off, axis=0)
-    std_off = np.std(aggregate_off, axis=0)
-    interval_off.add_trace(go.Scatter(
-        x=x_epoch, y=mean_off, mode='lines', name='mean signal', line=dict(color='blue', width=2, dash='solid')
-    ))
-    interval_off.add_trace(go.Scatter(
-        x=x_epoch, y=mean_off + std_off, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
-        line=dict(color='rgba(255,255,255,0)'), showlegend=False
-    ))
-    interval_off.add_trace(go.Scatter(
-        x=x_epoch, y=mean_off - std_off, fill='tonexty', hoverinfo="skip",
-        fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
-    ))
-    interval_off.add_vrect(x0=-duration, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+    mean_off = np.mean(aggregate_off, axis=0) if len(aggregate_off) > 0 else None
+    if mean_off is not None:
+        std_off = np.std(aggregate_off, axis=0)
+        interval_off.add_trace(go.Scatter(
+            x=x_epoch, y=mean_off, mode='lines', name='mean signal', line=dict(color='blue', width=2, dash='solid')
+        ))
+        interval_off.add_trace(go.Scatter(
+            x=x_epoch, y=mean_off + std_off, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
+            line=dict(color='rgba(255,255,255,0)'), showlegend=False
+        ))
+        interval_off.add_trace(go.Scatter(
+            x=x_epoch, y=mean_off - std_off, fill='tonexty', hoverinfo="skip",
+            fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
+        ))
+        interval_off.add_vrect(x0=-duration, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
     
     interval_on.update_layout(title='Signal around event onset', xaxis_title='Time (s)', yaxis_title='Signal',
                                 paper_bgcolor='rgba(0, 0, 0, 0)', plot_bgcolor='rgba(10, 10, 10, 0.02)')
@@ -257,8 +261,6 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
     
     return fig, interval_on, interval_off
 
-# Callback to update the dropdown options.
-# Here we do not reload the raw data; we only clear the graph cache when reprocessing.
 @app.callback(
     [Output('mouse-dropdown', 'options'), Output('mouse-dropdown', 'value')],
     Input('reprocess-btn', 'n_clicks')
@@ -266,15 +268,28 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
 def update_dropdown(n_clicks):
     global graph_cache
     if n_clicks and n_clicks > 0:
-        load_raw_data()       # Re-read raw data from disk.
-        graph_cache = {}      # Clear the processed graph cache.
+        load_raw_data()
+        graph_cache = {}
         print("Raw data reloaded and processed graphs cache cleared.")
+
     if not mouse_data:
         return [{"label": "No data available", "value": "None"}], "None"
-    options = (
-        [{"label": "Averaged Data", "value": "average"}] +
-        [{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_data]
-    )
+    
+    # Build the dropdown options
+    options = [{"label": "Averaged Data", "value": "average"}]
+    
+    for mouse_folder in mouse_data:
+        # If the folder name starts with "mouse", remove that substring to get just the number
+        # e.g. "mouse3" -> "3"
+        if mouse_folder.lower().startswith("mouse"):
+            suffix = mouse_folder[len("mouse"):]  # e.g. remove 'mouse' from 'mouse3'
+            label = f"Mouse {suffix}"
+        else:
+            # Fallback if the folder doesn't start with 'mouse'
+            label = f"Mouse {mouse_folder}"
+        
+        options.append({"label": label, "value": mouse_folder})
+
     return options, "average"
 
 # Callback to update the main content based on the dropdown selection.
@@ -285,16 +300,21 @@ def update_dropdown(n_clicks):
 def update_tab(selected_value, n_clicks):
     if not selected_value:
         return "No data available."
+    
     # If "Averaged Data" is selected, generate aggregated plots.
     if selected_value == "average":
+        # If cached content exists, return it
         if "average" in graph_cache:
             return graph_cache["average"]
+        
         acc_on_all = []
         acc_off_all = []
         adn_on_all = []
         adn_off_all = []
         duration = 3  # seconds
         fps = None
+        
+        # Aggregate epoch data across all mice
         for mouse, merged in mouse_data.items():
             intervals = merged.get_freezing_intervals()
             if fps is None:
@@ -303,6 +323,7 @@ def update_tab(selected_value, n_clicks):
             acc_epochs_off = merged.get_epoch_data(intervals, 'ACC', duration=duration, type='off')
             adn_epochs = merged.get_epoch_data(intervals, 'ADN', duration=duration)
             adn_epochs_off = merged.get_epoch_data(intervals, 'ADN', duration=duration, type='off')
+            
             for epoch in acc_epochs:
                 acc_on_all.append(epoch[2])
             for epoch in acc_epochs_off:
@@ -311,8 +332,11 @@ def update_tab(selected_value, n_clicks):
                 adn_on_all.append(epoch[2])
             for epoch in adn_epochs_off:
                 adn_off_all.append(epoch[2])
+        
+        # Generate average plots
         acc_on_fig, acc_off_fig = generate_average_plot("ACC", acc_on_all, acc_off_all, duration, fps)
         adn_on_fig, adn_off_fig = generate_average_plot("ADN", adn_on_all, adn_off_all, duration, fps)
+        
         content = html.Div([
             html.Div([
                 dcc.Graph(figure=acc_on_fig),
@@ -323,29 +347,40 @@ def update_tab(selected_value, n_clicks):
                 dcc.Graph(figure=adn_off_fig)
             ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'})
         ])
+        
+        # Cache and return
         graph_cache["average"] = content
         return content
+    
+    # Otherwise, if a specific mouse is selected, display its graphs.
     else:
         if selected_value not in mouse_data:
             return "No data available."
+        
+        # If we have cached content for this mouse, return it
         if selected_value in graph_cache:
             return graph_cache[selected_value]
+        
         print(f"Loading data for: {selected_value}")
         merged = mouse_data[selected_value]
         mergeddataset = merged.df
         duration = 3
         fps = merged.fps
+        
         intervals = merged.get_freezing_intervals()
         epochs_acc = merged.get_epoch_data(intervals, 'ACC', duration=duration)
         epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', duration=duration, type='off')
         epochs_adn = merged.get_epoch_data(intervals, 'ADN', duration=duration)
         epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', duration=duration, type='off')
+        
+        # Generate plots for this mouse
         acc, acc_interval_on, acc_interval_off = generate_plots(
             mergeddataset, intervals, fps, duration, epochs_acc, epochs_acc_off, name='ACC'
         )
         adn, adn_interval_on, adn_interval_off = generate_plots(
             mergeddataset, intervals, fps, duration, epochs_adn, epochs_adn_off, name='ADN'
         )
+        
         content = html.Div([
             html.Div([
                 dcc.Graph(figure=acc),
@@ -360,6 +395,8 @@ def update_tab(selected_value, n_clicks):
                 dcc.Graph(figure=adn_interval_off),
             ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top'})
         ])
+        
+        # Cache and return
         graph_cache[selected_value] = content
         return content
 
