@@ -11,14 +11,13 @@ import time
 import webbrowser
 import pickle
 
+# Determine the base path (works both for script and executable)
 if getattr(sys, 'frozen', False):
-    # Running as an executable
     base_path = sys._MEIPASS
 else:
-    # Running as a script
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-data_dir = os.path.join(base_path, "../data")  # Go to root of MouseMemoryGraph
+data_dir = os.path.join(base_path, "../data")
 data_dir = os.path.abspath(data_dir)
 
 cache_file = "mouse_cache.pkl"  # File to store cache data
@@ -32,7 +31,7 @@ except (FileNotFoundError, EOFError):
     cache = {}  # Initialize an empty cache if no file exists
 
 def load_data():
-    """ Load datasets dynamically and use cache to avoid redundant processing """
+    """Load datasets dynamically and use cache to avoid redundant processing."""
     global mouse_data, mouse_folders
     mouse_data = {}
 
@@ -40,7 +39,7 @@ def load_data():
     mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
 
     for mouse in mouse_folders:
-        if mouse in cache:  # ✅ Use cached data if available
+        if mouse in cache:  # Use cached data if available
             print(f"Loading cached data for: {mouse}")
             mouse_data[mouse] = cache[mouse]
         else:
@@ -55,7 +54,7 @@ def load_data():
                 merged = MergeDatasets(photometry, behavior)
 
                 mouse_data[mouse] = merged  # Store processed data
-                cache[mouse] = merged  # ✅ Save to cache
+                cache[mouse] = merged  # Save to cache
 
     # Save cache to disk after processing
     with open(cache_file, "wb") as f:
@@ -67,46 +66,64 @@ load_data()
 
 app = dash.Dash(__name__, assets_folder='../assets')
 
-# Layout with Tabs on the left and Reprocess Button below
+# Layout with a header, a dropdown (with the Reprocess button below it), and content below
 app.layout = html.Div([
+    # Header Image
     html.Div([
         html.Img(src='assets/header.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-bottom': '10px'}),
 
+    # Dropdown for selecting mouse graphs and Reprocess Data button
     html.Div([
-        html.Div([
-            dcc.Tabs(id="tabs", value=mouse_folders[0] if mouse_folders else None, vertical=True),
-            html.Button("Reprocess Data", id="reprocess-btn", n_clicks=0,
-                        style={'width': '100%', 'margin-top': '10px', 'padding': '10px',
-                               'background-color': 'red', 'color': 'white',
-                               'border': 'none', 'cursor': 'pointer'})
-        ], style={'width': '15%', 'display': 'inline-block', 'vertical-align': 'top'}),
+        dcc.Dropdown(
+            id='mouse-dropdown',
+            options=[{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_folders] 
+                     if mouse_folders else [{"label": "No data available", "value": "None"}],
+            value=mouse_folders[0] if mouse_folders else "None",
+            style={'width': '300px', 'margin': '0 auto'}
+        ),
+        html.Button(
+            "Reprocess Data", 
+            id="reprocess-btn", 
+            n_clicks=0,
+            style={
+                'width': '150px', 
+                'margin-top': '10px', 
+                'padding': '10px',
+                'background-color': 'red', 
+                'color': 'white',
+                'border': 'none', 
+                'cursor': 'pointer'
+            }
+        )
+    ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
 
-        html.Div(id='tab-content', style={'width': '80%', 'display': 'inline-block', 'padding-left': '20px'})
-    ], style={'display': 'flex'}),
+    # Content that will display the mouse graphs
+    html.Div(id='tab-content'),
 
+    # Footer Image
     html.Div([
         html.Img(src='assets/footer.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-top': '10px'})
 ])
 
+# Callback to update dropdown options when reprocessing is triggered
 @app.callback(
-    [Output('tabs', 'children'), Output('tabs', 'value')],
+    [Output('mouse-dropdown', 'options'), Output('mouse-dropdown', 'value')],
     Input('reprocess-btn', 'n_clicks')
 )
-def update_tabs(n_clicks):
-    """ Update the list of tabs when reprocessing is triggered """
+def update_dropdown(n_clicks):
     load_data()  # Reload available mouse data (using cache when possible)
-    
     if not mouse_data:
-        return ["No data available"], None
-    
-    tabs = [dcc.Tab(label=f"Mouse {mouse}", value=mouse) for mouse in mouse_data]
-    return tabs, list(mouse_data.keys())[0]  # Ensure a mouse is selected
+        return [{"label": "No data available", "value": "None"}], "None"
+    options = [{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_data]
+    # Select the first mouse by default
+    return options, list(mouse_data.keys())[0]
 
+# Callback to update the content based on the selected mouse
 @app.callback(
     Output('tab-content', 'children'),
-    [Input('tabs', 'value'), Input('reprocess-btn', 'n_clicks')]
+    [Input('mouse-dropdown', 'value'), Input('reprocess-btn', 'n_clicks')]
 )
 def update_tab(selected_mouse, n_clicks):
     if not selected_mouse or selected_mouse not in mouse_data:
@@ -114,7 +131,7 @@ def update_tab(selected_mouse, n_clicks):
 
     print(f"Loading data for: {selected_mouse}")
 
-    merged = mouse_data[selected_mouse]  # ✅ Load from cache
+    merged = mouse_data[selected_mouse]  # Load from cache
     mergeddataset = merged.df
     duration = 3
     fps = merged.fps
@@ -125,9 +142,13 @@ def update_tab(selected_mouse, n_clicks):
     epochs_adn = merged.get_epoch_data(intervals, 'ADN', duration=duration)
     epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', duration=duration, type='off')
 
-    # ✅ Generate Plots
-    acc, acc_interval_on, acc_interval_off = generate_plots(mergeddataset, intervals, fps, duration, epochs_acc, epochs_acc_off, name='ACC')
-    adn, adn_interval_on, adn_interval_off = generate_plots(mergeddataset, intervals, fps, duration, epochs_adn, epochs_adn_off, name='ADN')
+    # Generate Plots (using your pre-defined generate_plots function)
+    acc, acc_interval_on, acc_interval_off = generate_plots(
+        mergeddataset, intervals, fps, duration, epochs_acc, epochs_acc_off, name='ACC'
+    )
+    adn, adn_interval_on, adn_interval_off = generate_plots(
+        mergeddataset, intervals, fps, duration, epochs_adn, epochs_adn_off, name='ADN'
+    )
 
     return html.Div([
         html.Div([
@@ -145,74 +166,121 @@ def update_tab(selected_mouse, n_clicks):
     ])
 
 def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epochs_acc_off, name='ACC'):
-    """ Function to generate ACC and ADN plots with intervals """
-    fig = go.Figure(layout_yaxis_range=[-5,5])
-    interval_on = go.Figure(layout_yaxis_range=[-4,4])
-    interval_off = go.Figure(layout_yaxis_range=[-4,4])
+    """Function to generate ACC and ADN plots with intervals."""
+    fig = go.Figure(layout_yaxis_range=[-5, 5])
+    interval_on = go.Figure(layout_yaxis_range=[-4, 4])
+    interval_off = go.Figure(layout_yaxis_range=[-4, 4])
 
-    x = np.arange(0, len(mergeddataset)/fps, 1/fps)
+    x = np.arange(0, len(mergeddataset) / fps, 1 / fps)
 
     # Full signals
-    fig.add_trace(go.Scatter(x=x, y=mergeddataset[f'{name}.signal'], mode='lines', name=f'{name} Signal', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
-    fig.add_trace(go.Scatter(x=x, y=mergeddataset[f'{name}.control'], mode='lines', name=f'{name} Control', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
-    fig.add_trace(go.Scatter(x=x, y=mergeddataset[f'{name}.zdFF'], mode='lines', name=f'{name} zdFF', line=dict(color='blue', width=2, dash='solid')))
+    fig.add_trace(go.Scatter(
+        x=x, 
+        y=mergeddataset[f'{name}.signal'], 
+        mode='lines', 
+        name=f'{name} Signal', 
+        line=dict(color='gray', width=1, dash='solid'), 
+        opacity=0.5
+    ))
+    fig.add_trace(go.Scatter(
+        x=x, 
+        y=mergeddataset[f'{name}.control'], 
+        mode='lines', 
+        name=f'{name} Control', 
+        line=dict(color='gray', width=1, dash='solid'), 
+        opacity=0.5
+    ))
+    fig.add_trace(go.Scatter(
+        x=x, 
+        y=mergeddataset[f'{name}.zdFF'], 
+        mode='lines', 
+        name=f'{name} zdFF', 
+        line=dict(color='blue', width=2, dash='solid')
+    ))
 
     fig.update_layout(title=f'{name} Signal, Control, and zdFF', xaxis_title='Index', yaxis_title='Value')
 
-    # Add dummy trace 
-    fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers', name=f'freezing bouts > {duration}s', marker=dict(color='blue', size=7, symbol='square', opacity=0.2)))
-    fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers', name=f'freezing bouts < {duration}s', marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)))
+    # Add dummy traces for legend
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode='markers', name=f'freezing bouts > {duration}s', 
+        marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
+    ))
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode='markers', name=f'freezing bouts < {duration}s', 
+        marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
+    ))
 
     for on, off in intervals:
-        on = on / fps
-        off = off / fps
-        fig.add_vrect(x0=on, x1=off, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+        on_sec = on / fps
+        off_sec = off / fps
+        fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
     # Create epochs for interval plots
     aggregate_on = []
     aggregate_off = []
 
-    # Interval plotting
+    # Interval plotting for onsets
     for i, inter in enumerate(epochs_acc_on):
-        x = np.arange(-duration, duration, 1/fps)
-        y = inter[2]
-        interval_on.add_trace(go.Scatter(x=x, y=y, name=f'onset {i+1}', mode='lines', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
-        aggregate_on.append(y)
-        fig.add_vrect(x0=inter[1][0]/ fps, x1=inter[1][1]/ fps, fillcolor='blue', opacity=0.2, layer='below', line_width=0)
+        x_epoch = np.arange(-duration, duration, 1 / fps)
+        y_epoch = inter[2]
+        interval_on.add_trace(go.Scatter(
+            x=x_epoch, y=y_epoch, name=f'onset {i+1}', mode='lines', 
+            line=dict(color='gray', width=1, dash='solid'), opacity=0.5
+        ))
+        aggregate_on.append(y_epoch)
+        fig.add_vrect(
+            x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue', opacity=0.2, layer='below', line_width=0
+        )
 
+    # Interval plotting for offsets
     for i, inter in enumerate(epochs_acc_off):
-        x = np.arange(-duration, duration, 1/fps)
-        y = inter[2]
-        interval_off.add_trace(go.Scatter(x=x, y=y, name=f'offset {i+1}', mode='lines', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
-        aggregate_off.append(y)
+        x_epoch = np.arange(-duration, duration, 1 / fps)
+        y_epoch = inter[2]
+        interval_off.add_trace(go.Scatter(
+            x=x_epoch, y=y_epoch, name=f'offset {i+1}', mode='lines', 
+            line=dict(color='gray', width=1, dash='solid'), opacity=0.5
+        ))
+        aggregate_off.append(y_epoch)
 
-    # Compute mean & standard deviation across epochs
+    # Compute mean & std across onset epochs
     aggregate_on = np.array(aggregate_on)
     mean_on = np.mean(aggregate_on, axis=0)
     std_on = np.std(aggregate_on, axis=0)
-
-    interval_on.add_trace(go.Scatter(x=x,y=mean_on,mode='lines',name='mean signal',line=dict(color='blue', width=2, dash='solid')))
-    interval_on.add_trace(go.Scatter(x=x,y=mean_on + std_on,hoverinfo="skip",fillcolor='rgba(0, 0, 255, 0.1)',line=dict(color='rgba(255,255,255,0)'),showlegend=False))
-    interval_on.add_trace(go.Scatter(x=x,y=mean_on - std_on,fill='tonexty',hoverinfo="skip",fillcolor='rgba(0, 0, 255, 0.1)',line=dict(color='rgba(255,255,255,0)'),showlegend=False))
+    interval_on.add_trace(go.Scatter(
+        x=x_epoch, y=mean_on, mode='lines', name='mean signal', line=dict(color='blue', width=2, dash='solid')
+    ))
+    interval_on.add_trace(go.Scatter(
+        x=x_epoch, y=mean_on + std_on, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'), showlegend=False
+    ))
+    interval_on.add_trace(go.Scatter(
+        x=x_epoch, y=mean_on - std_on, fill='tonexty', hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
+    ))
     interval_on.add_vrect(x0=0, x1=duration, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
-    # Compute mean & standard deviation across epochs
+    # Compute mean & std across offset epochs
     aggregate_off = np.array(aggregate_off)
     mean_off = np.mean(aggregate_off, axis=0)
     std_off = np.std(aggregate_off, axis=0)
-
-    interval_off.add_trace(go.Scatter(x=x,y=mean_off,mode='lines',name='mean signal',line=dict(color='blue', width=2, dash='solid')))
-    interval_off.add_trace(go.Scatter(x=x,y=mean_off + std_off,hoverinfo="skip",fillcolor='rgba(0, 0, 255, 0.1)',line=dict(color='rgba(255,255,255,0)'),showlegend=False))
-    interval_off.add_trace(go.Scatter(x=x,y=mean_off - std_off,fill='tonexty',hoverinfo="skip",fillcolor='rgba(0, 0, 255, 0.1)',line=dict(color='rgba(255,255,255,0)'),showlegend=False))
+    interval_off.add_trace(go.Scatter(
+        x=x_epoch, y=mean_off, mode='lines', name='mean signal', line=dict(color='blue', width=2, dash='solid')
+    ))
+    interval_off.add_trace(go.Scatter(
+        x=x_epoch, y=mean_off + std_off, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'), showlegend=False
+    ))
+    interval_off.add_trace(go.Scatter(
+        x=x_epoch, y=mean_off - std_off, fill='tonexty', hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
+    ))
     interval_off.add_vrect(x0=-duration, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
-
-    # Update layouts
+    # Update interval layouts
     interval_on.update_layout(title='Signal around event onset', xaxis_title='Time (s)', yaxis_title='Signal')
-    interval_off.update_layout(title='Signal around event onset', xaxis_title='Time (s)', yaxis_title='Signal')
+    interval_off.update_layout(title='Signal around event offset', xaxis_title='Time (s)', yaxis_title='Signal')
 
-    return fig, interval_on, interval_off  # ✅ Correctly returning separate plots
-
+    return fig, interval_on, interval_off
 
 if __name__ == '__main__':
     # Give the server a moment to start before opening the browser
