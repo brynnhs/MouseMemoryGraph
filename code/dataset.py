@@ -339,10 +339,10 @@ for mouse in mouse_folders:
 # Print available mice for verification
 print(f"Loaded data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
-df = photometry.normalize_signal()
+# df = photometry.normalize_signal()
 
-merged = MergeDatasets(photometry, behavior)
+# merged = MergeDatasets(photometry, behavior)
 
-intervals = merged.get_freezing_intervals()
+# intervals = merged.get_freezing_intervals()
 
-epochs = merged.get_epoch_data(intervals, 'ACC', type='off')
+# epochs = merged.get_epoch_data(intervals, 'ACC', type='off')
