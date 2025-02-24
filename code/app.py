@@ -3,7 +3,6 @@ import pandas as pd
 import dash
 import numpy as np
 import os
-import dash_daq as daq
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
@@ -23,8 +22,6 @@ data_dir = os.path.join(base_path, "../data")  # Go to root of MouseMemoryGraph
 data_dir = os.path.abspath(data_dir)
 
 cache_file = "mouse_cache.pkl"  # File to store cache data
-
-global_color = '#119DFF'
 
 # Try to load cached data from disk
 try:
@@ -77,36 +74,6 @@ app.layout = html.Div([
     ], style={'text-align': 'center', 'margin-bottom': '10px'}),
 
     html.Div([
-        dcc.Dropdown(
-            id='mouse-dropdown',
-            options=[{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_folders] 
-                     if mouse_folders else [{"label": "No data available", "value": "None"}],
-            value=mouse_folders[0] if mouse_folders else "None",
-            style={'width': '300px', 'margin': '0 auto'}
-        ),
-        html.Button(
-            "Reprocess Data", 
-            id="reprocess-btn", 
-            n_clicks=0,
-            style={
-                'width': '150px', 
-                'margin-top': '10px', 
-                'padding': '10px',
-                'background-color': 'red', 
-                'color': 'white',
-                'border': 'none', 
-                'cursor': 'pointer'
-            }
-        ),
-        html.Div([
-            daq.ColorPicker(
-                id='my-color-picker-1',
-                label='Color Picker',
-                value=dict(hex='#119DFF')
-            ),
-            html.Div(id='color-picker-output-1')
-        ]),
-    ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
         html.Div([
             dcc.Tabs(id="tabs", value=mouse_folders[0] if mouse_folders else None, vertical=True),
             html.Button("Reprocess Data", id="reprocess-btn", n_clicks=0,
@@ -141,7 +108,6 @@ def update_tabs(n_clicks):
     Output('tab-content', 'children'),
     [Input('tabs', 'value'), Input('reprocess-btn', 'n_clicks')]
 )
-
 def update_tab(selected_mouse, n_clicks):
     if not selected_mouse or selected_mouse not in mouse_data:
         return "No data available."
@@ -177,17 +143,6 @@ def update_tab(selected_mouse, n_clicks):
             dcc.Graph(figure=adn_interval_off),
         ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top'})
     ])
-
-
-@app.callback(
-    Output('color-picker-output-1', 'children'),
-    Input('my-color-picker-1', 'value_color')
-)
-
-def update_output(value_color):
-    global global_color
-    global_color = value_color
-    return f'The selected color is {global_color}.'
 
 def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epochs_acc_off, name='ACC'):
     """ Function to generate ACC and ADN plots with intervals """
