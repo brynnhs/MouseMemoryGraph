@@ -267,26 +267,30 @@ class MergeDatasets():
         """
         frames_before = int(before * self.fps)
         frames_after = int(after * self.fps)
-        max_index = self.df.index[-1]
-        epochs = []
+        max = self.df.index[-1]
 
-        for i, (on, off) in enumerate(intervals):
-            if type == 'on':
-                event_index = on
-            elif type == 'off':
-                event_index = off
-            else:
-                print("Type not recognized")
-                continue
+        # filter out epochs where the difference between their onsets is less than twice the epoch duration
+        if type == 'on':
+            diff = np.diff([on for on, off in intervals])
+        elif type == 'off':
+            diff = np.diff([off for on, off in intervals])
+        else:
+            # throw an error
+            print("Type not recognized")
 
-            beg = int(event_index - frames_before)
-            end = int(event_index + frames_after)
-            # Filter out epochs that are out of bounds
-            if beg < 0 or end > max_index:
-                continue
+        diff = np.insert(diff, 0, 0)
+        #intervals = [intervals[i] for i in range(len(intervals)) if diff[i] > 2 * frames]
 
-            epoch_signal = self.df[column + '.zdFF'][beg:end]
-            epochs.append([(beg, end), (on, off), epoch_signal])
+        if type == 'on':
+            epochs = [((int(on-frames_before), int(on+frames_after)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames_after]
+        elif type == 'off':
+            epochs = [((int(off-frames_before), int(off+frames_after)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames_before]
+        else:
+            # throw an error
+            print("Type not recognized")
+        #filter out epochs that are out of bounds
+        epochs = [((beg, end), inter) for (beg, end), inter in epochs if beg > 0 and end < max]
+        epochs = [[(beg, end), inter, self.df[column+'.zdFF'][beg:end]] for (beg, end), inter in epochs]
         
         return epochs
 
