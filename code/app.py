@@ -50,7 +50,7 @@ def load_raw_data():
 # Initial load of raw data
 load_raw_data()
 
-app = dash.Dash(__name__, assets_folder='../assets', suppress_callback_exceptions=True)
+app = dash.Dash(__name__, assets_folder='../assets')
 
 app.layout = html.Div([
     # Header image
@@ -86,8 +86,18 @@ app.layout = html.Div([
         )
     ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
     
-    # Main content area for graphs
-    html.Div(id='tab-content'),
+    html.Div([
+        html.Div([
+                dcc.Input(id="input-interval-before", type="number", placeholder="Time before event", min=0, value=3),
+                dcc.Input(id="input-interval-after", type="number", placeholder="Time after event", min=0, value=3),
+                html.Div(id="number-out")
+            ], style={'display': 'inline-block', 'vertical-align': 'top'}),
+        # Main content area for graphs
+        html.Div(id='tab-content'),
+    ], 
+    # align vertically
+    style={'display': 'flex', 'flex-direction': 'column'}
+    ),
     
     # Footer image
     html.Div([
@@ -304,9 +314,12 @@ def update_dropdown(n_clicks):
 # Callback to update the main content based on the dropdown selection.
 @app.callback(
     Output('tab-content', 'children'),
-    [Input('mouse-dropdown', 'value'), Input('reprocess-btn', 'n_clicks')]
+    [Input('mouse-dropdown', 'value'),
+    Input("input-interval-before", "value"),
+    Input("input-interval-after", "value")],
 )
-def update_tab(selected_value, n_clicks):
+def update_tab(selected_value, before, after):
+    print(f"Selected value: {selected_value} | Before: {before} | After: {after}")
     if not selected_value:
         return "No data available."
     
@@ -373,7 +386,7 @@ def update_tab(selected_value, n_clicks):
         print(f"Loading data for: {selected_value}")
         merged = mouse_data[selected_value]
         mergeddataset = merged.df
-        duration = 3
+        duration = before  # seconds
         fps = merged.fps
         
         intervals = merged.get_freezing_intervals()
@@ -391,10 +404,6 @@ def update_tab(selected_value, n_clicks):
         )
         
         content = html.Div([
-            html.Div([
-                dcc.Input(id="timebefore", type="number", placeholder="Time before event", value=3),
-                dcc.Input(id="timeafter", type="number", placeholder="Time after event", value=3),
-            ], style={'display': 'inline-block', 'vertical-align': 'top'}),
             html.Div([
                 html.Div([
                     dcc.Graph(id='acc',figure=acc),
@@ -415,7 +424,7 @@ def update_tab(selected_value, n_clicks):
         )
         
         # Cache and return
-        graph_cache[selected_value] = content
+        #graph_cache[selected_value] = content
         return content
 
 @app.callback(
