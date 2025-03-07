@@ -418,6 +418,7 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
                                paper_bgcolor='rgba(0, 0, 0, 0)', plot_bgcolor='rgba(10, 10, 10, 0.02)')
     fig.update_layout(paper_bgcolor='rgba(0, 0, 0, 0)', plot_bgcolor='rgba(0, 0, 0, 0)')
 
+
     return fig, interval_on, interval_off
 
 # ----------------------------------------------------------------
