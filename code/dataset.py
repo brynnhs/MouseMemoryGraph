@@ -26,7 +26,7 @@ class PhotometryDataset():
                              "AIn-1 - Dem (AOut-2)": "ACC.signal",
                              "AIn-2 - Dem (AOut-1)": "ADN.control",
                              "AIn-2 - Dem (AOut-2)": "ADN.signal"},
-                 ttl_col='AOut-1',
+                 ttl_col='DI/O-1',
                  bin_size=0.01,
                  cutoff=1.7,
                  fps=100):
@@ -234,7 +234,7 @@ class MergeDatasets():
         assert 'Time(s)' in behavior.df.columns, "Time(s) not in behavior dataframe"
 
         # check that AOut-1 is in photometry dataframe
-        assert 'AOut-1' in photometry.df.columns, "AOut-1 not in photometry dataframe"
+        assert 'DI/O-1' in photometry.df.columns, "DI/O-1 not in photometry dataframe"
 
         # merge dataframes on 'Time(s)' and round to 2 decimal places
         photometry.df['Time(s)'] = photometry.df['Time(s)'].round(2)
@@ -247,8 +247,8 @@ class MergeDatasets():
         # drop rows with NaN values
         self.df = self.df.dropna()
 
-        # get rid of rows with 'AOut-1' == 0
-        self.df = self.df[self.df['AOut-1'] != 0]
+        # get rid of rows with 'DI/O-1' == 0
+        #self.df = self.df[self.df['DI/O-1'] != 0]
         self.df = self.df.reset_index()
 
     def get_freezing_intervals(self, merge_range=1):
@@ -326,24 +326,24 @@ mouse_folders = [f for f in os.listdir(data_dir) if os.path.isdir(os.path.join(d
 # Dictionary to store datasets
 mouse_data = {}
 
-for mouse in mouse_folders:
-    photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
-    behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
+#for mouse in mouse_folders:
+#    photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
+#    behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
 
-    if os.path.exists(photometry_path) and os.path.exists(behavior_path):
-        photometry = PhotometryDataset(photometry_path)
-        behavior = BehaviorDataset(behavior_path)
-        photometry.normalize_signal()
-        merged = MergeDatasets(photometry, behavior).df
-        mouse_data[mouse] = merged  # Store the merged dataframe
+#    if os.path.exists(photometry_path) and os.path.exists(behavior_path):
+#        photometry = PhotometryDataset(photometry_path)
+#        behavior = BehaviorDataset(behavior_path)
+#        photometry.normalize_signal()
+#        merged = MergeDatasets(photometry, behavior).df
+#        mouse_data[mouse] = merged  # Store the merged dataframe
 
 # Print available mice for verification
-print(f"Loaded data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
+#print(f"Loaded data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
-df = photometry.normalize_signal()
+#df = photometry.normalize_signal()
 
-merged = MergeDatasets(photometry, behavior)
+#merged = MergeDatasets(photometry, behavior)
 
-intervals = merged.get_freezing_intervals()
+#intervals = merged.get_freezing_intervals()
 
-epochs = merged.get_epoch_data(intervals, 'ACC', type='off')
+#epochs = merged.get_epoch_data(intervals, 'ACC', type='off')
