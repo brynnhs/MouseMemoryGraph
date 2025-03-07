@@ -15,7 +15,7 @@ class PhotometryDataset():
         file_path (str): Path to the photometry data file
         column_map (dict): Dictionary mapping original column names to signal and control names.
             The control (405nm) should be named ".control" and the signal (465nm) should be named ".signal"
-
+        ttl_col (str): Column name for TTL signal
         bin_size (float): Size of the time bins for data binning in seconds
         cutoff (float): Cutoff frequency for low-pass filter
         fps (int): Sampling frequency of the data in Hz
@@ -32,7 +32,7 @@ class PhotometryDataset():
                  fps=100):
         
         self.df = pd.read_csv(file_path).rename(columns=column_map)
-        self.df = self.df.dropna() #this will shift the time
+        self.df = self.df.dropna()  # this will shift the time
         self.column_map = column_map
         self.ttl_col = ttl_col
 
@@ -40,32 +40,29 @@ class PhotometryDataset():
         self.cutoff = cutoff
         self.fps = fps
 
-
         self.df = self.bin_data(self.df, column_map, bin_size=self.bin_size)
 
         # Apply low-pass filter to each signal
         for col in column_map.values():
             self.df[col] = self.low_pass_filter(self.df[col])
 
-
     def bin_data(self, df, column_map, bin_size=0.01):
         """
-        Bin data at specified time interval
+        Bin data at specified time interval.
         """
-        agg = {self.ttl_col: 'min'} # aggregate using mean
+        agg = {self.ttl_col: 'min'}  # aggregate using mean
         for col in column_map.values():
             agg[col] = "mean"
 
         df["Time_bin"] = df["Time(s)"].round(2)  # Create a new column for binning
         df_binned = df.groupby("Time_bin").agg(agg).reset_index()
-        
         df_binned.rename(columns={"Time_bin": "Time(s)"}, inplace=True)  # Rename back
 
         return df_binned
 
     def low_pass_filter(self, data, cutoff=1.7, fs=100):
         """
-        Apply low-pass filter to data using Butterworth filter
+        Apply low-pass filter to data using Butterworth filter.
         """
         nyquist = 0.5 * fs
         norm_cutoff = cutoff / nyquist
@@ -73,45 +70,32 @@ class PhotometryDataset():
 
         return filtfilt(b, a, data) 
     
-    def smooth_signal(self, x, window_len=10,window='flat'):
+    def smooth_signal(self, x, window_len=10, window='flat'):
+        """
+        Smooth the data using a window with requested size.
 
-        """smooth the data using a window with requested size.
-        
-        This method is based on the convolution of a scaled window with the signal.
         The signal is prepared by introducing reflected copies of the signal 
         (with the window size) in both ends so that transient parts are minimized
-        in the begining and end part of the output signal.
-        The code taken from: https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html
-        
-        input:
-            x: the input signal 
-            window_len: the dimension of the smoothing window; should be an odd integer
-            window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
-                    'flat' window will produce a moving average smoothing.
-
-        output:
-            the smoothed signal        
+        in the beginning and end part of the output signal.
+        (Code adapted from https://scipy-cookbook.readthedocs.io/items/SignalSmooth.html)
         """
-
         if x.ndim != 1:
             raise(ValueError, "smooth only accepts 1 dimension arrays.")
         if x.size < window_len:
             raise(ValueError, "Input vector needs to be bigger than window size.")
-        if window_len<3:
+        if window_len < 3:
             return x
 
         if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
             raise(ValueError, "Window is one of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
         
-        s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
-
-        if window == 'flat': # Moving average
-            w=np.ones(window_len,'d')
+        s = np.r_[x[window_len-1:0:-1], x, x[-2:-window_len-1:-1]]
+        if window == 'flat':  # Moving average
+            w = np.ones(window_len, 'd')
         else:
-            w=eval('np.'+window+'(window_len)')
+            w = eval('np.' + window + '(window_len)')
 
-        y=np.convolve(w/w.sum(),s,mode='valid')
-
+        y = np.convolve(w/w.sum(), s, mode='valid')
         return y[(int(window_len/2)-1):-int(window_len/2)]
     
     def linear_baseline(self, signal):
@@ -121,6 +105,9 @@ class PhotometryDataset():
         return baseline
     
     def normalize_signal(self):   
+        """
+        Normalize signals using a linear baseline correction.
+        """
         # go through the columns and take each pair of signal and control
         columns = list(self.column_map.values())
         # find all unique prefixes
@@ -135,7 +122,7 @@ class PhotometryDataset():
             s_base = self.linear_baseline(raw_signal)
             c_base = self.linear_baseline(raw_control)
 
-            remove=0
+            remove = 0
             control = (raw_control[remove:] - c_base[remove:])
             signal = (raw_signal[remove:] - s_base[remove:])  
 
@@ -148,17 +135,15 @@ class PhotometryDataset():
             df_normalized[reg + ".control"] = z_control
         
         self.df = df_normalized
-        
         return df_normalized
-
 
 
 class BehaviorDataset():
     """
-    Class for loading and processing behavioral data
+    Class for loading and processing behavioral data.
     
     Args:
-        file_path (str): Path to the behavior data file
+        file_path (str): Path to the behavior data file.
     """
     def __init__(self,
                  file_path,
@@ -190,50 +175,42 @@ class BehaviorDataset():
         velocity = np.append(velocity, velocity[-1])
 
         # time in seconds
-
         dataframe['Time(s)'] = np.arange(0, len(dataframe)/fps, 1/fps)
 
         self.freezing = self.detect_freezing(velocity)
-
         dataframe['freezing'] = self.freezing
         self.df = dataframe
-
-
-
 
     def calculate_velocity(self, x, y):
         return np.sqrt(np.diff(x)**2 + np.diff(y)**2)
     
     def detect_freezing(self, velocity, window_width=5, threshold=6):
         """
-        use mean velocity over window_width to detect freezing if below threshold
+        Use mean velocity over window_width to detect freezing if below threshold.
         """
         head_freezing = np.zeros(len(velocity))
         for i in range(window_width, len(velocity)):
-            if velocity[max(i-(window_width//2), 0):min(i+(window_width//2), len(velocity))].mean() < threshold:
+            if velocity[max(i - (window_width//2), 0):min(i + (window_width//2), len(velocity))].mean() < threshold:
                 head_freezing[i] = 1
         kernel = np.ones(10)
         head_freezing = convolve1d(head_freezing, kernel, mode='constant')
         return head_freezing > 2
-
     
 
 class MergeDatasets():
-    
     """
-    Class for merging photometry and behavior data
+    Class for merging photometry and behavior data.
     
     Args:
-        photometry (PhotometryDataset): Photometry dataset
-        behavior (BehaviorDataset): Behavior dataset
+        photometry (PhotometryDataset): Photometry dataset.
+        behavior (BehaviorDataset): Behavior dataset.
     """
     def __init__(self, photometry, behavior):
-
         # check that 'Time(s)' is in both dataframes with assert
         assert 'Time(s)' in photometry.df.columns, "Time(s) not in photometry dataframe"
         assert 'Time(s)' in behavior.df.columns, "Time(s) not in behavior dataframe"
 
-        # check that AOut-1 is in photometry dataframe
+        # check that DI/O-1 is in photometry dataframe
         assert 'DI/O-1' in photometry.df.columns, "DI/O-1 not in photometry dataframe"
 
         # merge dataframes on 'Time(s)' and round to 2 decimal places
@@ -242,14 +219,11 @@ class MergeDatasets():
 
         self.df = pd.merge(photometry.df, behavior.df, on="Time(s)", how="outer")
         self.fps = min(photometry.fps, behavior.fps)
-        self.fps = min(photometry.fps, behavior.fps)
-
         # drop rows with NaN values
         self.df = self.df.dropna()
-
-        # get rid of rows with 'DI/O-1' == 0
-        #self.df = self.df[self.df['DI/O-1'] != 0]
-        self.df = self.df.reset_index()
+        # Optionally filter out rows where DI/O-1 is 0 (currently commented out)
+        # self.df = self.df[self.df['DI/O-1'] != 0]
+        self.df = self.df.reset_index(drop=True)
 
     def get_freezing_intervals(self, merge_range=1):
         """
@@ -273,38 +247,46 @@ class MergeDatasets():
 
         return merged
     
-    def get_epoch_data(self, intervals, column, duration=1, type='on'):
+    def get_epoch_data(self, intervals, column, before=2, after=2, type='on'):
         """
-        Get photometry data for each epoch with a specified duration in seconds
-
-        - filter out all intervals that are shorter than the specified duration
-        - filter out all overlapping intervals
+        Get photometry data for each epoch defined by a window around an event.
+        
+        Args:
+            intervals (list): List of (onset, offset) index pairs.
+            column (str): Base name of the sensor (e.g. 'ACC' or 'ADN'). The method
+                          will use the corresponding column '{column}.zdFF'.
+            before (float): Seconds before the event to include.
+            after (float): Seconds after the event to include.
+            type (str): 'on' to use the onset of the interval, 'off' to use the offset.
+            
+        Returns:
+            epochs (list): A list where each element is a list containing:
+                - Tuple (beg, end): the start and end indices of the epoch.
+                - Tuple (on, off): the original event interval.
+                - The sensor data (as a pandas Series) for the epoch.
         """
-        frames = int(duration * self.fps)
-        max = self.df.index[-1]
+        frames_before = int(before * self.fps)
+        frames_after = int(after * self.fps)
+        max_index = self.df.index[-1]
+        epochs = []
 
-        # filter out epochs where the difference between their onsets is less than twice the epoch duration
-        if type == 'on':
-            diff = np.diff([on for on, off in intervals])
-        elif type == 'off':
-            diff = np.diff([off for on, off in intervals])
-        else:
-            # throw an error
-            print("Type not recognized")
+        for i, (on, off) in enumerate(intervals):
+            if type == 'on':
+                event_index = on
+            elif type == 'off':
+                event_index = off
+            else:
+                print("Type not recognized")
+                continue
 
-        diff = np.insert(diff, 0, 0)
-        #intervals = [intervals[i] for i in range(len(intervals)) if diff[i] > 2 * frames]
+            beg = int(event_index - frames_before)
+            end = int(event_index + frames_after)
+            # Filter out epochs that are out of bounds
+            if beg < 0 or end > max_index:
+                continue
 
-        if type == 'on':
-            epochs = [((int(on-frames), int(on+frames)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames]
-        elif type == 'off':
-            epochs = [((int(off-frames), int(off+frames)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames]
-        else:
-            # throw an error
-            print("Type not recognized")
-        #filter out epochs that are out of bounds
-        epochs = [((beg, end), inter) for (beg, end), inter in epochs if beg > 0 and end < max]
-        epochs = [[(beg, end), inter, self.df[column+'.zdFF'][beg:end]] for (beg, end), inter in epochs]
+            epoch_signal = self.df[column + '.zdFF'][beg:end]
+            epochs.append([(beg, end), (on, off), epoch_signal])
         
         return epochs
 
@@ -326,24 +308,22 @@ mouse_folders = [f for f in os.listdir(data_dir) if os.path.isdir(os.path.join(d
 # Dictionary to store datasets
 mouse_data = {}
 
-#for mouse in mouse_folders:
-#    photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
-#    behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
-
-#    if os.path.exists(photometry_path) and os.path.exists(behavior_path):
-#        photometry = PhotometryDataset(photometry_path)
-#        behavior = BehaviorDataset(behavior_path)
-#        photometry.normalize_signal()
-#        merged = MergeDatasets(photometry, behavior).df
-#        mouse_data[mouse] = merged  # Store the merged dataframe
+# The following lines are commented out; uncomment and adjust paths as needed
+# for mouse in mouse_folders:
+#     photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
+#     behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
+# 
+#     if os.path.exists(photometry_path) and os.path.exists(behavior_path):
+#         photometry = PhotometryDataset(photometry_path)
+#         behavior = BehaviorDataset(behavior_path)
+#         photometry.normalize_signal()
+#         merged = MergeDatasets(photometry, behavior).df
+#         mouse_data[mouse] = merged  # Store the merged dataframe
 
 # Print available mice for verification
-#print(f"Loaded data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
+# print(f"Loaded data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
-#df = photometry.normalize_signal()
-
-#merged = MergeDatasets(photometry, behavior)
-
-#intervals = merged.get_freezing_intervals()
-
-#epochs = merged.get_epoch_data(intervals, 'ACC', type='off')
+# Example usage:
+# merged = MergeDatasets(photometry, behavior)
+# intervals = merged.get_freezing_intervals()
+# epochs = merged.get_epoch_data(intervals, 'ACC', before=2, after=2, type='off')

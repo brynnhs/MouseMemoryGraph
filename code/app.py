@@ -87,14 +87,22 @@ app.layout = html.Div([
         )
     ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
     
-    # NEW: Numeric input to set the epoch length (seconds) for -epoch_length to +epoch_length
+    # NEW: Two numeric inputs for epoch window: seconds before and after event
     html.Div([
-        html.Label("Epoch Length (seconds):"),
+        html.Label("Seconds Before Event:"),
         dcc.Input(
-            id="epoch-length",
+            id="seconds-before",
             type="number",
-            placeholder="Enter epoch length (e.g. 2)",
-            value=2,  # default is 2 seconds (i.e. from -2s to +2s)
+            placeholder="Enter seconds before (e.g. 2)",
+            value=2,
+            style={'margin-left': '10px', 'margin-right': '20px'}
+        ),
+        html.Label("Seconds After Event:"),
+        dcc.Input(
+            id="seconds-after",
+            type="number",
+            placeholder="Enter seconds after (e.g. 2)",
+            value=2,
             style={'margin-left': '10px'}
         )
     ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
@@ -108,12 +116,12 @@ app.layout = html.Div([
     ], style={'text-align': 'center', 'margin-top': '10px'})
 ])
 
-def generate_average_plot(sensor, epochs_on, epochs_off, duration, fps):
+def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
     """
     Generate mean ± std plots for ON and OFF epochs, for all mice combined.
-    The window is from -duration to +duration.
+    The window is from -before to +after.
     """
-    x = np.arange(-duration, duration, 1/fps)
+    x = np.arange(-before, after, 1/fps)
     # Onset average plot
     fig_on = go.Figure()
     if epochs_on:
@@ -168,13 +176,13 @@ def generate_average_plot(sensor, epochs_on, epochs_off, duration, fps):
     
     return fig_on, fig_off
 
-def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epochs_acc_off, name='ACC'):
+def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, epochs_acc_off, name='ACC'):
     """
     Generate detailed plots for the given sensor: 
       - The full signals figure 
       - The interval_on figure (with multiple onsets + mean) 
       - The interval_off figure (with multiple offsets + mean)
-    The window for the epoch plots is from -duration to +duration.
+    The window for the epoch plots is from -before to +after.
     """
     fig = go.Figure(layout_yaxis_range=[-5, 5])
     interval_on = go.Figure(layout_yaxis_range=[-4, 4])
@@ -209,11 +217,11 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
     
     # Dummy traces for legend
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'freezing bouts > {duration}s', 
+        x=[None], y=[None], mode='markers', name=f'freezing bouts > {after}s', 
         marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
     ))
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'freezing bouts < {duration}s', 
+        x=[None], y=[None], mode='markers', name=f'freezing bouts < {after}s', 
         marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
     ))
     
@@ -227,23 +235,20 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
     aggregate_on = []
     aggregate_off = []
     
-    # We'll use the same "duration" for the epoch window
-    # => from -duration to +duration
     for i, inter in enumerate(epochs_acc_on):
-        x_epoch = np.arange(-duration, duration, 1 / fps)
+        x_epoch = np.arange(-before, after, 1 / fps)
         y_epoch = inter[2]
         interval_on.add_trace(go.Scatter(
             x=x_epoch, y=y_epoch, name=f'onset {i+1}', mode='lines', 
             line=dict(color='gray', width=1, dash='solid'), opacity=0.5
         ))
         aggregate_on.append(y_epoch)
-        # Also highlight that onset in the main figure
         fig.add_vrect(
             x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue', opacity=0.2, layer='below', line_width=0
         )
     
     for i, inter in enumerate(epochs_acc_off):
-        x_epoch = np.arange(-duration, duration, 1 / fps)
+        x_epoch = np.arange(-before, after, 1 / fps)
         y_epoch = inter[2]
         interval_off.add_trace(go.Scatter(
             x=x_epoch, y=y_epoch, name=f'offset {i+1}', mode='lines', 
@@ -253,8 +258,8 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
     
     # Compute mean & std for onsets
     aggregate_on = np.array(aggregate_on)
-    mean_on = np.mean(aggregate_on, axis=0) if len(aggregate_on) > 0 else None
-    if mean_on is not None:
+    if len(aggregate_on) > 0:
+        mean_on = np.mean(aggregate_on, axis=0)
         std_on = np.std(aggregate_on, axis=0)
         interval_on.add_trace(go.Scatter(
             x=x_epoch, y=mean_on, mode='lines', name='mean signal', 
@@ -268,12 +273,12 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
             x=x_epoch, y=mean_on - std_on, fill='tonexty', hoverinfo="skip",
             fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
         ))
-        interval_on.add_vrect(x0=0, x1=duration, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+        interval_on.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
     # Compute mean & std for offsets
     aggregate_off = np.array(aggregate_off)
-    mean_off = np.mean(aggregate_off, axis=0) if len(aggregate_off) > 0 else None
-    if mean_off is not None:
+    if len(aggregate_off) > 0:
+        mean_off = np.mean(aggregate_off, axis=0)
         std_off = np.std(aggregate_off, axis=0)
         interval_off.add_trace(go.Scatter(
             x=x_epoch, y=mean_off, mode='lines', name='mean signal', 
@@ -287,9 +292,8 @@ def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epoch
             x=x_epoch, y=mean_off - std_off, fill='tonexty', hoverinfo="skip",
             fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
         ))
-        interval_off.add_vrect(x0=-duration, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+        interval_off.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
     
-    # Layout
     interval_on.update_layout(
         title='Signal around event onset',
         xaxis_title='Time (s)',
@@ -336,31 +340,32 @@ def update_dropdown(n_clicks):
 
     return options, "average"
 
-
 #
 # MAIN CALLBACK: Renders the layout for either "Averaged Data" or a specific mouse
-#                and uses the user-provided "epoch-length" to define the ± window.
+#                and uses the user-provided "seconds-before" and "seconds-after" to define the epoch window.
 #
 @app.callback(
     Output('tab-content', 'children'),
     [Input('mouse-dropdown', 'value'),
      Input('reprocess-btn', 'n_clicks'),
-     Input('epoch-length', 'value')]
+     Input('seconds-before', 'value'),
+     Input('seconds-after', 'value')]
 )
-def update_tab(selected_value, n_clicks, epoch_length):
+def update_tab(selected_value, n_clicks, seconds_before, seconds_after):
     """
-    If "Averaged Data" is selected, generate the aggregated plots with the chosen epoch_length.
-    Otherwise, show single-mouse plots with that same epoch_length.
+    If "Averaged Data" is selected, generate the aggregated plots with the chosen epoch window.
+    Otherwise, show single-mouse plots with that same epoch window.
     """
     if not selected_value:
         return "No data available."
     
     if selected_value == "average":
-        if "average" in graph_cache and graph_cache["average"].get("epoch_length") == epoch_length:
-            # If we have cached content for this epoch_length, reuse it
+        # Use cache key with both seconds_before and seconds_after
+        if ("average" in graph_cache and 
+            graph_cache["average"].get("before") == seconds_before and 
+            graph_cache["average"].get("after") == seconds_after):
             return graph_cache["average"]["layout"]
         
-        # Otherwise, rebuild the average figures
         acc_on_all = []
         acc_off_all = []
         adn_on_all = []
@@ -371,10 +376,10 @@ def update_tab(selected_value, n_clicks, epoch_length):
             intervals = merged.get_freezing_intervals()
             if fps is None:
                 fps = merged.fps
-            acc_epochs_on = merged.get_epoch_data(intervals, 'ACC', duration=epoch_length)
-            acc_epochs_off = merged.get_epoch_data(intervals, 'ACC', duration=epoch_length, type='off')
-            adn_epochs_on = merged.get_epoch_data(intervals, 'ADN', duration=epoch_length)
-            adn_epochs_off = merged.get_epoch_data(intervals, 'ADN', duration=epoch_length, type='off')
+            acc_epochs_on = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after)
+            acc_epochs_off = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off')
+            adn_epochs_on = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after)
+            adn_epochs_off = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off')
             
             for epoch in acc_epochs_on:
                 acc_on_all.append(epoch[2])
@@ -386,8 +391,8 @@ def update_tab(selected_value, n_clicks, epoch_length):
                 adn_off_all.append(epoch[2])
         
         # Build four average figures: ACC Onset, ACC Offset, ADN Onset, ADN Offset
-        acc_on_fig, acc_off_fig = generate_average_plot("ACC", acc_on_all, acc_off_all, epoch_length, fps)
-        adn_on_fig, adn_off_fig = generate_average_plot("ADN", adn_on_all, adn_off_all, epoch_length, fps)
+        acc_on_fig, acc_off_fig = generate_average_plot("ACC", acc_on_all, acc_off_all, seconds_before, seconds_after, fps)
+        adn_on_fig, adn_off_fig = generate_average_plot("ADN", adn_on_all, adn_off_all, seconds_before, seconds_after, fps)
         
         content = html.Div([
             html.Div([
@@ -427,10 +432,10 @@ def update_tab(selected_value, n_clicks, epoch_length):
             ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
         ])
         
-        # Cache the layout + the current epoch_length
         graph_cache["average"] = {
             "layout": content,
-            "epoch_length": epoch_length
+            "before": seconds_before,
+            "after": seconds_after
         }
         return content
     
@@ -438,32 +443,28 @@ def update_tab(selected_value, n_clicks, epoch_length):
         if selected_value not in mouse_data:
             return "No data available."
         
-        # Build a cache key that depends on the mouse and the epoch_length
-        cache_key = f"{selected_value}_epoch_{epoch_length}"
+        cache_key = f"{selected_value}_epoch_{seconds_before}_{seconds_after}"
         if cache_key in graph_cache:
             return graph_cache[cache_key]
         
-        # Build the single-mouse figures with the chosen epoch_length
         merged = mouse_data[selected_value]
         mergeddataset = merged.df
         fps = merged.fps
         
         intervals = merged.get_freezing_intervals()
-        epochs_acc_on = merged.get_epoch_data(intervals, 'ACC', duration=epoch_length)
-        epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', duration=epoch_length, type='off')
-        epochs_adn_on = merged.get_epoch_data(intervals, 'ADN', duration=epoch_length)
-        epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', duration=epoch_length, type='off')
+        epochs_acc_on = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after)
+        epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off')
+        epochs_adn_on = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after)
+        epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off')
         
         acc_full, acc_interval_on, acc_interval_off = generate_plots(
-            mergeddataset, intervals, fps, epoch_length, epochs_acc_on, epochs_acc_off, name='ACC'
+            mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_acc_on, epochs_acc_off, name='ACC'
         )
         adn_full, adn_interval_on, adn_interval_off = generate_plots(
-            mergeddataset, intervals, fps, epoch_length, epochs_adn_on, epochs_adn_off, name='ADN'
+            mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_adn_on, epochs_adn_off, name='ADN'
         )
         
         content = html.Div([
-            # (Optional) Show the numeric input again if you like, or keep it above
-            # We'll skip duplication here since we have it at the top
             html.Div([
                 dcc.Graph(id='acc', figure=acc_full),
                 dcc.Graph(id='adn', figure=adn_full),
@@ -531,7 +532,6 @@ def update_tab(selected_value, n_clicks, epoch_length):
             ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
         ], style={'display': 'flex', 'flex-direction': 'column'})
         
-        # Cache the result for this mouse & epoch_length
         graph_cache[cache_key] = content
         return content
 
