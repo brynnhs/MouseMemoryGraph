@@ -3,6 +3,7 @@ import pandas as pd
 import dash
 import numpy as np
 import os
+import dash_daq as daq
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
@@ -19,7 +20,6 @@ else:
 data_dir = os.path.join(base_path, "../data")
 data_dir = os.path.abspath(data_dir)
 
-
 # Global containers:
 # mouse_data will store the raw (merged) data for each mouse.
 # graph_cache will store the processed figures.
@@ -33,20 +33,24 @@ def load_raw_data():
     # Detect available mouse folders
     mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
     for mouse in mouse_folders:
-        photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
-        behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
+        photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
+        behavior_path = os.path.join(data_dir, mouse, "Behavior.csv")
         if os.path.exists(photometry_path) and os.path.exists(behavior_path):
-            photometry = PhotometryDataset(photometry_path)
+            photometry = PhotometryDataset(photometry_path, column_map={"channel1_410": "ACC.control",
+                             "channel1_470": "ACC.signal",
+                             "channel2_410": "ADN.control",
+                             "channel2_470": "ADN.signal"})
             behavior = BehaviorDataset(behavior_path)
             photometry.normalize_signal()
             merged = MergeDatasets(photometry, behavior)
+
             mouse_data[mouse] = merged
     print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
 # Initial load of raw data
 load_raw_data()
 
-app = dash.Dash(__name__, assets_folder='../assets')
+app = dash.Dash(__name__, assets_folder='../assets', suppress_callback_exceptions=True)
 
 app.layout = html.Div([
     # Header image
@@ -300,7 +304,7 @@ def update_dropdown(n_clicks):
 # Callback to update the main content based on the dropdown selection.
 @app.callback(
     Output('tab-content', 'children'),
-    [Input('mouse-dropdown', 'value'), Input('reprocess-btn', 'n_clicks')],
+    [Input('mouse-dropdown', 'value'), Input('reprocess-btn', 'n_clicks')]
 )
 def update_tab(selected_value, n_clicks):
     if not selected_value:
@@ -316,8 +320,8 @@ def update_tab(selected_value, n_clicks):
         acc_off_all = []
         adn_on_all = []
         adn_off_all = []
+        duration = 1  # seconds
         fps = None
-        duration =  3
         
         # Aggregate epoch data across all mice
         for mouse, merged in mouse_data.items():
@@ -369,7 +373,7 @@ def update_tab(selected_value, n_clicks):
         print(f"Loading data for: {selected_value}")
         merged = mouse_data[selected_value]
         mergeddataset = merged.df
-        duration =  3
+        duration = 3
         fps = merged.fps
         
         intervals = merged.get_freezing_intervals()
@@ -413,6 +417,23 @@ def update_tab(selected_value, n_clicks):
         # Cache and return
         graph_cache[selected_value] = content
         return content
+
+@app.callback(
+    Output('acc', 'children'),  # You can replace this with a different Output if needed
+    Input('graph', 'click_legend')  # Captures clicks on legend items
+)
+def display_clicked_legend(legend_data):
+    if legend_data is None:
+        return "Click on a legend item to see its details."
+
+    # Extract the trace name (legend item clicked)
+    clicked_trace_name = legend_data['trace']['name']
+    clicked_trace_id = legend_data['trace']['uid']  # Unique ID of the trace
+
+    print(f"Clicked Legend: ID={clicked_trace_id}, Name={clicked_trace_name}")
+    
+    return f"Clicked Legend: ID={clicked_trace_id}, Name={clicked_trace_name}"
+
 
 if __name__ == '__main__':
     time.sleep(1)
