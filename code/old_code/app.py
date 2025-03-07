@@ -9,192 +9,301 @@ from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 import sys
 import time
 import webbrowser
+import pickle
 
+# Determine the base path (works both for script and executable)
 if getattr(sys, 'frozen', False):
-    # Running as an executable
     base_path = sys._MEIPASS
 else:
-    # Running as a script
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-data_dir = os.path.join(base_path, "../data")  # Go to root of MouseMemoryGraph
+data_dir = os.path.join(base_path, "../data")
 data_dir = os.path.abspath(data_dir)
 
-# Function to dynamically load mouse data
+cache_file = "mouse_cache.pkl"  # File to store cache data
+
+# Try to load cached data from disk
+try:
+    with open(cache_file, "rb") as f:
+        cache = pickle.load(f)
+    print("Cache loaded successfully.")
+except (FileNotFoundError, EOFError):
+    cache = {}  # Initialize an empty cache if no file exists
+
 def load_data():
-    """ Function to scan and load datasets dynamically, including newly added mice """
+    """Load datasets dynamically and use cache to avoid redundant processing."""
     global mouse_data, mouse_folders
     mouse_data = {}
-    
-    # Dynamically detect available mouse folders
-    mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
-    
-    for mouse in mouse_folders:
-        photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
-        behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
 
-        if os.path.exists(photometry_path) and os.path.exists(behavior_path):
-            photometry = PhotometryDataset(photometry_path)
-            behavior = BehaviorDataset(behavior_path)
-            photometry.normalize_signal()
-            merged = MergeDatasets(photometry, behavior).df
-            mouse_data[mouse] = merged
+    # Detect available mouse folders
+    mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
+
+    for mouse in mouse_folders:
+        if mouse in cache:  # Use cached data if available
+            print(f"Loading cached data for: {mouse}")
+            mouse_data[mouse] = cache[mouse]
+        else:
+            print(f"Processing data for: {mouse}")
+            folder_path = os.path.join(data_dir, mouse)
+            
+            # Search for a CSV file with "mouse" in its name
+            photometry_file = None
+            for file in os.listdir(folder_path):
+                if "mouse" in file.lower() and file.endswith(".csv"):
+                    photometry_file = file
+                    break
+            
+            if not photometry_file:
+                print(f"No photometry CSV found for: {mouse}")
+                continue  # Skip if no matching file is found
+            
+            photometry_path = os.path.join(folder_path, photometry_file)
+            behavior_path = os.path.join(folder_path, "Behavior.csv")
+
+            if os.path.exists(photometry_path) and os.path.exists(behavior_path):
+                photometry = PhotometryDataset(photometry_path)
+                behavior = BehaviorDataset(behavior_path)
+                photometry.normalize_signal()
+                merged = MergeDatasets(photometry, behavior)
+
+                mouse_data[mouse] = merged  # Store processed data
+                cache[mouse] = merged  # Save to cache
+
+    # Save cache to disk after processing
+    with open(cache_file, "wb") as f:
+        pickle.dump(cache, f)
+    print("Cache updated and saved.")
 
 # Initial data load
 load_data()
 
 app = dash.Dash(__name__, assets_folder='../assets')
 
-# Layout with Tabs on the left and Reprocess Button below
+# Layout with a header, a dropdown (with the Reprocess button below it), and content below
 app.layout = html.Div([
+    # Header Image
     html.Div([
         html.Img(src='assets/header.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-bottom': '10px'}),
 
+    # Dropdown for selecting mouse graphs and Reprocess Data button
     html.Div([
-        html.Div([
-            dcc.Tabs(id="tabs", value=mouse_folders[0] if mouse_folders else None, vertical=True),
-            html.Button("Reprocess Data", id="reprocess-btn", n_clicks=0,
-                        style={'width': '100%', 'margin-top': '10px', 'padding': '10px',
-                               'background-color': 'red', 'color': 'white',
-                               'border': 'none', 'cursor': 'pointer'})
-        ], style={'width': '15%', 'display': 'inline-block', 'vertical-align': 'top'}),
+        dcc.Dropdown(
+            id='mouse-dropdown',
+            options=[{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_folders] 
+                     if mouse_folders else [{"label": "No data available", "value": "None"}],
+            value=mouse_folders[0] if mouse_folders else "None",
+            style={'width': '300px', 'margin': '0 auto'}
+        ),
+        html.Button(
+            "Reprocess Data", 
+            id="reprocess-btn", 
+            n_clicks=0,
+            style={
+                'width': '150px', 
+                'margin-top': '10px', 
+                'padding': '10px',
+                'background-color': 'red', 
+                'color': 'white',
+                'border': 'none', 
+                'cursor': 'pointer'
+            }
+        )
+    ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
 
-        html.Div(id='tab-content', style={'width': '80%', 'display': 'inline-block', 'padding-left': '20px'})
-    ], style={'display': 'flex'}),
+    # Content that will display the mouse graphs
+    html.Div(id='tab-content'),
 
+    # Footer Image
     html.Div([
         html.Img(src='assets/footer.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-top': '10px'})
 ])
 
-# Callback to update tabs when reprocessing is triggered
+# Callback to update dropdown options when reprocessing is triggered
 @app.callback(
-    [Output('tabs', 'children'), Output('tabs', 'value')],
+    [Output('mouse-dropdown', 'options'), Output('mouse-dropdown', 'value')],
     Input('reprocess-btn', 'n_clicks')
 )
-def update_tabs(n_clicks):
-    """ Update the list of tabs when reprocessing is triggered """
-    load_data()  # Reload all available mouse data, including new mice
-    
+def update_dropdown(n_clicks):
+    load_data()  # Reload available mouse data (using cache when possible)
     if not mouse_data:
-        return ["No data available"], None
-    
-    tabs = [dcc.Tab(label=f"Mouse {mouse}", value=mouse) for mouse in mouse_data]
-    return tabs, list(mouse_data.keys())[0]  # Ensure a mouse is selected
+        return [{"label": "No data available", "value": "None"}], "None"
+    options = [{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_data]
+    # Select the first mouse by default
+    return options, list(mouse_data.keys())[0]
 
-# Callback to update plots and handle reprocessing
 @app.callback(
     Output('tab-content', 'children'),
-    [Input('tabs', 'value'), Input('reprocess-btn', 'n_clicks')]
+    [Input('mouse-dropdown', 'value'), Input('reprocess-btn', 'n_clicks')]
 )
 def update_tab(selected_mouse, n_clicks):
     if not selected_mouse or selected_mouse not in mouse_data:
         return "No data available."
 
-    print(f"Processing data for: {selected_mouse}")
+    print(f"Loading data for: {selected_mouse}")
+    merged = mouse_data[selected_mouse]
+    
+    # Check if freezing intervals exist
+    intervals = merged.get_freezing_intervals()
+    if not intervals:
+        return "No freezing intervals found for the selected mouse."
+    
+    # Continue with processing and plotting if intervals exist...
+    mergeddataset = merged.df
+    duration = 3
+    fps = merged.fps
 
-    mergeddataset = mouse_data[selected_mouse].copy()
+    # Your existing processing and plotting code follows...
 
-    # Apply Rolling Window to Reduce Freezing Noise
-    fps = 100
-    min_freeze_duration = int(0.1 * fps)
-    rolling_freezing = mergeddataset['freezing'].rolling(window=min_freeze_duration, center=True).sum()
-    mergeddataset['freezing_clean'] = (rolling_freezing >= min_freeze_duration).astype(int)
+    intervals = merged.get_freezing_intervals()
+    epochs_acc = merged.get_epoch_data(intervals, 'ACC', duration=duration)
+    epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', duration=duration, type='off')
+    epochs_adn = merged.get_epoch_data(intervals, 'ADN', duration=duration)
+    epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', duration=duration, type='off')
 
-    # Detect Onsets & Offsets
-    onsets = mergeddataset[mergeddataset['freezing_clean'].diff() == 1].index.tolist()
-    offsets = mergeddataset[mergeddataset['freezing_clean'].diff() == -1].index.tolist()
-
-    # Ensure matching onsets and offsets
-    if len(onsets) > len(offsets):
-        offsets.append(mergeddataset.index[-1])
-    elif len(offsets) > len(onsets):
-        onsets.insert(0, mergeddataset.index[0])
-
-    intervals = list(zip(onsets, offsets))
-
-    # ✅ Generate Plots
-    acc_fig, adn_fig, acc_interval_fig, adn_interval_fig = generate_plots(mergeddataset, intervals, fps)
+    # Generate Plots (using your pre-defined generate_plots function)
+    acc, acc_interval_on, acc_interval_off = generate_plots(
+        mergeddataset, intervals, fps, duration, epochs_acc, epochs_acc_off, name='ACC'
+    )
+    adn, adn_interval_on, adn_interval_off = generate_plots(
+        mergeddataset, intervals, fps, duration, epochs_adn, epochs_adn_off, name='ADN'
+    )
 
     return html.Div([
         html.Div([
-            dcc.Graph(figure=acc_fig),
-            dcc.Graph(figure=adn_fig),
-        ], style={'width': '65%', 'display': 'inline-block', 'vertical-align': 'top'}),
+            dcc.Graph(figure=acc),
+            dcc.Graph(figure=adn),
+        ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'}),
         html.Div([
-            dcc.Graph(figure=acc_interval_fig),
-            dcc.Graph(figure=adn_interval_fig),
-        ], style={'width': '35%', 'display': 'inline-block', 'vertical-align': 'top'})
+            dcc.Graph(figure=acc_interval_on),
+            dcc.Graph(figure=adn_interval_on),
+        ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top'}),
+        html.Div([
+            dcc.Graph(figure=acc_interval_off),
+            dcc.Graph(figure=adn_interval_off),
+        ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top'})
     ])
 
-def generate_plots(mergeddataset, intervals, fps):
-    """ Function to generate ACC and ADN plots with intervals """
-    acc_fig = go.Figure()
-    adn_fig = go.Figure()
-    acc_interval_fig = go.Figure()
-    adn_interval_fig = go.Figure()
+def generate_plots(mergeddataset, intervals, fps, duration, epochs_acc_on, epochs_acc_off, name='ACC'):
+    """Function to generate ACC and ADN plots with intervals."""
+    fig = go.Figure(layout_yaxis_range=[-5, 5])
+    interval_on = go.Figure(layout_yaxis_range=[-4, 4])
+    interval_off = go.Figure(layout_yaxis_range=[-4, 4])
 
-    # Apply freezing intervals to full-trace plots
+    x = np.arange(0, len(mergeddataset) / fps, 1 / fps)
+
+    # Full signals
+    fig.add_trace(go.Scatter(
+        x=x, 
+        y=mergeddataset[f'{name}.signal'], 
+        mode='lines', 
+        name=f'{name} Signal', 
+        line=dict(color='gray', width=1, dash='solid'), 
+        opacity=0.5
+    ))
+    fig.add_trace(go.Scatter(
+        x=x, 
+        y=mergeddataset[f'{name}.control'], 
+        mode='lines', 
+        name=f'{name} Control', 
+        line=dict(color='gray', width=1, dash='solid'), 
+        opacity=0.5
+    ))
+    fig.add_trace(go.Scatter(
+        x=x, 
+        y=mergeddataset[f'{name}.zdFF'], 
+        mode='lines', 
+        name=f'{name} zdFF', 
+        line=dict(color='blue', width=2, dash='solid')
+    ))
+
+    fig.update_layout(title=f'{name} Signal, Control, and zdFF', xaxis_title='Index', yaxis_title='Value')
+
+    # Add dummy traces for legend
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode='markers', name=f'freezing bouts > {duration}s', 
+        marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
+    ))
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode='markers', name=f'freezing bouts < {duration}s', 
+        marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
+    ))
+
     for on, off in intervals:
-        acc_fig.add_vrect(x0=on, x1=off, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-        adn_fig.add_vrect(x0=on, x1=off, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-
-    # Full ACC signals
-    acc_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ACC.signal'], mode='lines', name='ACC Signal', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
-    acc_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ACC.control'], mode='lines', name='ACC Control', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
-    acc_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ACC.zdFF'], mode='lines', name='ACC zdFF', line=dict(color='blue', width=2, dash='solid')))
-
-    acc_fig.update_layout(title='ACC Signal, Control, and zdFF', xaxis_title='Index', yaxis_title='Value')
-
-    # Full ADN signals
-    adn_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ADN.signal'], mode='lines', name='ADN Signal', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
-    adn_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ADN.control'], mode='lines', name='ADN Control', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
-    adn_fig.add_trace(go.Scatter(x=mergeddataset.index, y=mergeddataset['ADN.zdFF'], mode='lines', name='ADN zdFF', line=dict(color='blue', width=2, dash='solid')))
-
-    adn_fig.update_layout(title='ADN Signal, Control, and zdFF', xaxis_title='Index', yaxis_title='Value')
+        on_sec = on / fps
+        off_sec = off / fps
+        fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
     # Create epochs for interval plots
-    epochs = [(int(on - fps * 1.5), int(on + fps * 1.5)) for on, off in intervals]
-    aggregate_acc = []
-    aggregate_adn = []
+    aggregate_on = []
+    aggregate_off = []
 
-    # Interval plotting
-    for inter in epochs:
-        if inter[0] < 0 or inter[1] > len(mergeddataset):
-            continue  # Ignore out-of-bounds epochs
+    # Interval plotting for onsets
+    for i, inter in enumerate(epochs_acc_on):
+        x_epoch = np.arange(-duration, duration, 1 / fps)
+        y_epoch = inter[2]
+        interval_on.add_trace(go.Scatter(
+            x=x_epoch, y=y_epoch, name=f'onset {i+1}', mode='lines', 
+            line=dict(color='gray', width=1, dash='solid'), opacity=0.5
+        ))
+        aggregate_on.append(y_epoch)
+        fig.add_vrect(
+            x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue', opacity=0.2, layer='below', line_width=0
+        )
 
-        # Define x-axis for epoch (-1.5s to 1.5s)
-        x = np.linspace(-1.5, 1.5, num=inter[1] - inter[0])
+    # Interval plotting for offsets
+    for i, inter in enumerate(epochs_acc_off):
+        x_epoch = np.arange(-duration, duration, 1 / fps)
+        y_epoch = inter[2]
+        interval_off.add_trace(go.Scatter(
+            x=x_epoch, y=y_epoch, name=f'offset {i+1}', mode='lines', 
+            line=dict(color='gray', width=1, dash='solid'), opacity=0.5
+        ))
+        aggregate_off.append(y_epoch)
 
-        # Extract and plot epochs
-        y_acc = mergeddataset['ACC.signal'].iloc[inter[0]:inter[1]].values
-        y_adn = mergeddataset['ADN.signal'].iloc[inter[0]:inter[1]].values
+    # Compute mean & std across onset epochs
+    aggregate_on = np.array(aggregate_on)
+    mean_on = np.mean(aggregate_on, axis=0)
+    std_on = np.std(aggregate_on, axis=0)
+    interval_on.add_trace(go.Scatter(
+        x=x_epoch, y=mean_on, mode='lines', name='mean signal', line=dict(color='blue', width=2, dash='solid')
+    ))
+    interval_on.add_trace(go.Scatter(
+        x=x_epoch, y=mean_on + std_on, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'), showlegend=False
+    ))
+    interval_on.add_trace(go.Scatter(
+        x=x_epoch, y=mean_on - std_on, fill='tonexty', hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
+    ))
+    interval_on.add_vrect(x0=0, x1=duration, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
-        acc_interval_fig.add_trace(go.Scatter(x=x, y=y_acc, mode='lines', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
-        adn_interval_fig.add_trace(go.Scatter(x=x, y=y_adn, mode='lines', line=dict(color='gray', width=1, dash='solid'), opacity=0.5))
+    # Compute mean & std across offset epochs
+    aggregate_off = np.array(aggregate_off)
+    mean_off = np.mean(aggregate_off, axis=0)
+    std_off = np.std(aggregate_off, axis=0)
+    interval_off.add_trace(go.Scatter(
+        x=x_epoch, y=mean_off, mode='lines', name='mean signal', line=dict(color='blue', width=2, dash='solid')
+    ))
+    interval_off.add_trace(go.Scatter(
+        x=x_epoch, y=mean_off + std_off, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
+        line=dict(color='rgba(255,255,255,0)'), showlegend=False
+    ))
+    interval_off.add_trace(go.Scatter(
+        x=x_epoch, y=mean_off - std_off, fill='tonexty', hoverinfo="skip",
+        fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
+    ))
+    interval_off.add_vrect(x0=-duration, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
-        aggregate_acc.append(y_acc)
-        aggregate_adn.append(y_adn)
+    # Update interval layouts
+    interval_on.update_layout(title='Signal around event onset', xaxis_title='Time (s)', yaxis_title='Signal')
+    interval_on.update_layout({'paper_bgcolor': 'rgba(0, 0, 0, 0)','plot_bgcolor': 'rgba(10, 10, 10, 0.02)',})
+    interval_off.update_layout(title='Signal around event offset', xaxis_title='Time (s)', yaxis_title='Signal')
+    interval_off.update_layout({'paper_bgcolor': 'rgba(0, 0, 0, 0)','plot_bgcolor': 'rgba(10, 10, 10, 0.02)',})
+    fig.update_layout({'paper_bgcolor': 'rgba(0, 0, 0, 0)','plot_bgcolor': 'rgba(0, 0, 0, 0)',})
 
-    # Compute mean & standard deviation across epochs
-    aggregate_acc = np.array(aggregate_acc)
-    aggregate_adn = np.array(aggregate_adn)
-
-    if len(aggregate_acc) > 0:
-        mean_acc = np.mean(aggregate_acc, axis=0)
-        acc_interval_fig.add_trace(go.Scatter(x=x, y=mean_acc, mode='lines', line=dict(color='blue', width=2, dash='solid')))
-
-    if len(aggregate_adn) > 0:
-        mean_adn = np.mean(aggregate_adn, axis=0)
-        adn_interval_fig.add_trace(go.Scatter(x=x, y=mean_adn, mode='lines', line=dict(color='blue', width=2, dash='solid')))
-
-    # Update layouts
-    acc_interval_fig.update_layout(title='ACC Event-Aligned Intervals', xaxis_title='Time (s)', yaxis_title='Signal')
-    adn_interval_fig.update_layout(title='ADN Event-Aligned Intervals', xaxis_title='Time (s)', yaxis_title='Signal')
-
-    return acc_fig, adn_fig, acc_interval_fig, adn_interval_fig  # ✅ Correctly returning separate plots
-
+    return fig, interval_on, interval_off
 
 if __name__ == '__main__':
     # Give the server a moment to start before opening the browser
