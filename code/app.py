@@ -180,7 +180,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
     
     return fig_on, fig_off
 
-def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, epochs_acc_off, name='ACC'):
+def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, name='ACC'):
     """
     Generate detailed plots for the given sensor: 
       - The full signals figure 
@@ -191,6 +191,7 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
     fig = go.Figure(layout_yaxis_range=[-5, 5])
     interval_on = go.Figure(layout_yaxis_range=[-4, 4])
     interval_off = go.Figure(layout_yaxis_range=[-4, 4])
+    avg_change = go.Figure()
     x = np.arange(0, len(mergeddataset) / fps, 1 / fps)
     
     # Full signals
@@ -297,6 +298,20 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
             fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
         ))
         interval_off.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+
+    # Bar plot for the zdFF change
+    if avg_on and avg_off:
+        avg_change.add_trace(go.Scatter(
+            x=np.ones_like(avg_on[:2]),
+            y=avg_on[:2],
+            marker_color='blue'
+        ))
+        avg_change.add_trace(go.Scatter(
+            x=np.ones_like(avg_off[:2]) * 2,
+            y=avg_off[:2],
+            marker_color='lightblue'
+        ))
+        avg_change.update_layout(title=f'{name} zdFF Change', xaxis_title='Epoch', yaxis_title='zdFF')
     
     interval_on.update_layout(
         title='Signal around event onset',
@@ -317,7 +332,7 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
         plot_bgcolor='rgba(0, 0, 0, 0)'
     )
     
-    return fig, interval_on, interval_off
+    return fig, interval_on, interval_off, avg_change
 
 #
 # MAIN CALLBACK: Renders the layout for either "Averaged Data" or a specific mouse
@@ -418,12 +433,21 @@ def update_tab(selected_value, seconds_before, seconds_after):
         epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off')
         epochs_adn_on = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after)
         epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off')
+
+        acc_avg_on = merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after)
+        adn_avg_on = merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after)
+        acc_avg_off = merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off')
+        adn_avg_off = merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off')
         
-        acc_full, acc_interval_on, acc_interval_off = generate_plots(
-            mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_acc_on, epochs_acc_off, name='ACC'
+        acc_full, acc_interval_on, acc_interval_off, acc_change = generate_plots(
+            mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_acc_on, epochs_acc_off, 
+            acc_avg_on, acc_avg_off,
+            name='ACC'
         )
-        adn_full, adn_interval_on, adn_interval_off = generate_plots(
-            mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_adn_on, epochs_adn_off, name='ADN'
+        adn_full, adn_interval_on, adn_interval_off, adn_change = generate_plots(
+            mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_adn_on, epochs_adn_off, 
+            adn_avg_on, adn_avg_off,
+            name='ADN'
         )
         
         content = html.Div([
@@ -433,9 +457,11 @@ def update_tab(selected_value, seconds_before, seconds_after):
                 dcc.Graph(id='acc', figure=acc_full),
                 html.Div([
                     dcc.Graph(id='accintervalon', figure=acc_interval_on, 
-                            style={'width': '50%', 'display': 'inline-block'}),
+                            style={'width': '35%', 'display': 'inline-block'}),
                     dcc.Graph(id='accintervaloff', figure=acc_interval_off, 
-                            style={'width': '50%', 'display': 'inline-block'})
+                            style={'width': '35%', 'display': 'inline-block'}),
+                    dcc.Graph(id='accchange', figure=acc_change,
+                            style={'width': '30%', 'display': 'inline-block'})
                 ], style={'display': 'flex', 'justify-content': 'space-around'})
             ], style={'margin-bottom': '40px'}),
             
@@ -445,9 +471,11 @@ def update_tab(selected_value, seconds_before, seconds_after):
                 dcc.Graph(id='adn', figure=adn_full),
                 html.Div([
                     dcc.Graph(id='adnintervalon', figure=adn_interval_on, 
-                            style={'width': '50%', 'display': 'inline-block'}),
+                            style={'width': '35%', 'display': 'inline-block'}),
                     dcc.Graph(id='adnintervaloff', figure=adn_interval_off, 
-                            style={'width': '50%', 'display': 'inline-block'})
+                            style={'width': '35%', 'display': 'inline-block'}),
+                    dcc.Graph(id='adnchange', figure=adn_change,
+                            style={'width': '30%', 'display': 'inline-block'})
                 ], style={'display': 'flex', 'justify-content': 'space-around'})
             ], style={'margin-bottom': '40px'}),
             
