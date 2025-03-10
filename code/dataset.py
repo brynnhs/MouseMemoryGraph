@@ -311,23 +311,3 @@ mouse_folders = [f for f in os.listdir(data_dir) if os.path.isdir(os.path.join(d
 
 # Dictionary to store datasets
 mouse_data = {}
-
-# The following lines are commented out; uncomment and adjust paths as needed
-# for mouse in mouse_folders:
-#     photometry_path = os.path.join(data_dir, mouse, "cfc_2046.csv")
-#     behavior_path = os.path.join(data_dir, mouse, "a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv")
-# 
-#     if os.path.exists(photometry_path) and os.path.exists(behavior_path):
-#         photometry = PhotometryDataset(photometry_path)
-#         behavior = BehaviorDataset(behavior_path)
-#         photometry.normalize_signal()
-#         merged = MergeDatasets(photometry, behavior).df
-#         mouse_data[mouse] = merged  # Store the merged dataframe
-
-# Print available mice for verification
-# print(f"Loaded data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
-
-# Example usage:
-# merged = MergeDatasets(photometry, behavior)
-# intervals = merged.get_freezing_intervals()
-# epochs = merged.get_epoch_data(intervals, 'ACC', before=2, after=2, type='off')

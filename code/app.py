@@ -20,9 +20,8 @@ else:
 data_dir = os.path.join(base_path, "../data")
 data_dir = os.path.abspath(data_dir)
 
-# Global containers:
+# Global container:
 mouse_data = {}
-graph_cache = {}
 
 def load_raw_data():
     """Load raw merged data for all mice and store in mouse_data."""
@@ -60,7 +59,7 @@ app.layout = html.Div([
         html.Img(src='assets/header.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-bottom': '10px'}),
     
-    # Dropdown and reprocess button
+    # Dropdown (options are set from the loaded data)
     html.Div([
         dcc.Dropdown(
             id='mouse-dropdown',
@@ -70,20 +69,6 @@ app.layout = html.Div([
             ) if mouse_data else [{"label": "No data available", "value": "None"}],
             value="average" if mouse_data else "None",
             style={'width': '300px', 'margin': '0 auto'}
-        ),
-        html.Button(
-            "Reprocess Data", 
-            id="reprocess-btn", 
-            n_clicks=0,
-            style={
-                'width': '150px', 
-                'margin-top': '10px', 
-                'padding': '10px',
-                'background-color': 'red', 
-                'color': 'white',
-                'border': 'none', 
-                'cursor': 'pointer'
-            }
         )
     ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
     
@@ -315,31 +300,6 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
     
     return fig, interval_on, interval_off
 
-@app.callback(
-    [Output('mouse-dropdown', 'options'), Output('mouse-dropdown', 'value')],
-    Input('reprocess-btn', 'n_clicks')
-)
-def update_dropdown(n_clicks):
-    global graph_cache
-    if n_clicks and n_clicks > 0:
-        load_raw_data()
-        graph_cache = {}
-        print("Raw data reloaded and processed graphs cache cleared.")
-
-    if not mouse_data:
-        return [{"label": "No data available", "value": "None"}], "None"
-    
-    options = [{"label": "Averaged Data", "value": "average"}]
-    for mouse_folder in mouse_data:
-        if mouse_folder.lower().startswith("mouse"):
-            suffix = mouse_folder[len("mouse"):]
-            label = f"Mouse {suffix}"
-        else:
-            label = f"Mouse {mouse_folder}"
-        options.append({"label": label, "value": mouse_folder})
-
-    return options, "average"
-
 #
 # MAIN CALLBACK: Renders the layout for either "Averaged Data" or a specific mouse
 #                and uses the user-provided "seconds-before" and "seconds-after" to define the epoch window.
@@ -347,11 +307,10 @@ def update_dropdown(n_clicks):
 @app.callback(
     Output('tab-content', 'children'),
     [Input('mouse-dropdown', 'value'),
-     Input('reprocess-btn', 'n_clicks'),
      Input('seconds-before', 'value'),
      Input('seconds-after', 'value')]
 )
-def update_tab(selected_value, n_clicks, seconds_before, seconds_after):
+def update_tab(selected_value, seconds_before, seconds_after):
     """
     If "Averaged Data" is selected, generate the aggregated plots with the chosen epoch window.
     Otherwise, show single-mouse plots with that same epoch window.
@@ -360,12 +319,6 @@ def update_tab(selected_value, n_clicks, seconds_before, seconds_after):
         return "No data available."
     
     if selected_value == "average":
-        # Use cache key with both seconds_before and seconds_after
-        if ("average" in graph_cache and 
-            graph_cache["average"].get("before") == seconds_before and 
-            graph_cache["average"].get("after") == seconds_after):
-            return graph_cache["average"]["layout"]
-        
         acc_on_all = []
         acc_off_all = []
         adn_on_all = []
@@ -431,21 +384,11 @@ def update_tab(selected_value, n_clicks, seconds_before, seconds_after):
                 )
             ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
         ])
-        
-        graph_cache["average"] = {
-            "layout": content,
-            "before": seconds_before,
-            "after": seconds_after
-        }
         return content
     
     else:
         if selected_value not in mouse_data:
             return "No data available."
-        
-        cache_key = f"{selected_value}_epoch_{seconds_before}_{seconds_after}"
-        if cache_key in graph_cache:
-            return graph_cache[cache_key]
         
         merged = mouse_data[selected_value]
         mergeddataset = merged.df
@@ -465,76 +408,85 @@ def update_tab(selected_value, n_clicks, seconds_before, seconds_after):
         )
         
         content = html.Div([
+            # ACC Section
             html.Div([
+                html.H3("ACC"),
                 dcc.Graph(id='acc', figure=acc_full),
+                html.Div([
+                    dcc.Graph(id='accintervalon', figure=acc_interval_on, 
+                            style={'width': '50%', 'display': 'inline-block'}),
+                    dcc.Graph(id='accintervaloff', figure=acc_interval_off, 
+                            style={'width': '50%', 'display': 'inline-block'})
+                ], style={'display': 'flex', 'justify-content': 'space-around'})
+            ], style={'margin-bottom': '40px'}),
+            
+            # ADN Section
+            html.Div([
+                html.H3("ADN"),
                 dcc.Graph(id='adn', figure=adn_full),
-            ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'}),
+                html.Div([
+                    dcc.Graph(id='adnintervalon', figure=adn_interval_on, 
+                            style={'width': '50%', 'display': 'inline-block'}),
+                    dcc.Graph(id='adnintervaloff', figure=adn_interval_off, 
+                            style={'width': '50%', 'display': 'inline-block'})
+                ], style={'display': 'flex', 'justify-content': 'space-around'})
+            ], style={'margin-bottom': '40px'}),
             
+            # Optionally, include your color picker sections here
             html.Div([
-                dcc.Graph(id='accintervalon', figure=acc_interval_on),
-                dcc.Graph(id='adnintervalon', figure=adn_interval_on),
-            ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top'}),
-            
-            html.Div([
-                dcc.Graph(id='accintervaloff', figure=acc_interval_off),
-                dcc.Graph(id='adnintervaloff', figure=adn_interval_off),
-            ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top'}),
-            
-            # Color picker sections for ACC and ADN
-            html.Div([
-                html.H3("ACC Color Settings"),
-                dcc.Dropdown(
-                    id='acc-plot-dropdown',
-                    options=[
-                        {'label': 'Full Signal', 'value': 'full'},
-                        {'label': 'Interval On', 'value': 'interval_on'},
-                        {'label': 'Interval Off', 'value': 'interval_off'},
-                    ],
-                    value='full',
-                    placeholder="Select a plot"
-                ),
-                dcc.Dropdown(
-                    id='acc-trace-dropdown',
-                    options=[],
-                    value=None,
-                    placeholder="Select a trace"
-                ),
-                daq.ColorPicker(
-                    id='acc-color-picker',
-                    label='Pick a color for ACC',
-                    value={'hex': '#0000FF'}
-                )
-            ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'}),
-            
-            html.Div([
-                html.H3("ADN Color Settings"),
-                dcc.Dropdown(
-                    id='adn-plot-dropdown',
-                    options=[
-                        {'label': 'Full Signal', 'value': 'full'},
-                        {'label': 'Interval On', 'value': 'interval_on'},
-                        {'label': 'Interval Off', 'value': 'interval_off'},
-                    ],
-                    value='full',
-                    placeholder="Select a plot"
-                ),
-                dcc.Dropdown(
-                    id='adn-trace-dropdown',
-                    options=[],
-                    value=None,
-                    placeholder="Select a trace"
-                ),
-                daq.ColorPicker(
-                    id='adn-color-picker',
-                    label='Pick a color for ADN',
-                    value={'hex': '#FF0000'}
-                )
-            ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
+                html.Div([
+                    html.H3("ACC Color Settings"),
+                    dcc.Dropdown(
+                        id='acc-plot-dropdown',
+                        options=[
+                            {'label': 'Full Signal', 'value': 'full'},
+                            {'label': 'Interval On', 'value': 'interval_on'},
+                            {'label': 'Interval Off', 'value': 'interval_off'},
+                        ],
+                        value='full',
+                        placeholder="Select a plot"
+                    ),
+                    dcc.Dropdown(
+                        id='acc-trace-dropdown',
+                        options=[],
+                        value=None,
+                        placeholder="Select a trace"
+                    ),
+                    daq.ColorPicker(
+                        id='acc-color-picker',
+                        label='Pick a color for ACC',
+                        value={'hex': '#0000FF'}
+                    )
+                ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'}),
+                
+                html.Div([
+                    html.H3("ADN Color Settings"),
+                    dcc.Dropdown(
+                        id='adn-plot-dropdown',
+                        options=[
+                            {'label': 'Full Signal', 'value': 'full'},
+                            {'label': 'Interval On', 'value': 'interval_on'},
+                            {'label': 'Interval Off', 'value': 'interval_off'},
+                        ],
+                        value='full',
+                        placeholder="Select a plot"
+                    ),
+                    dcc.Dropdown(
+                        id='adn-trace-dropdown',
+                        options=[],
+                        value=None,
+                        placeholder="Select a trace"
+                    ),
+                    daq.ColorPicker(
+                        id='adn-color-picker',
+                        label='Pick a color for ADN',
+                        value={'hex': '#FF0000'}
+                    )
+                ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
+            ], style={'display': 'flex', 'flex-direction': 'row', 'justify-content': 'space-around'})
         ], style={'display': 'flex', 'flex-direction': 'column'})
         
-        graph_cache[cache_key] = content
         return content
-
 
 #
 # SINGLE-MOUSE: Dynamic trace dropdowns for ACC & ADN
@@ -756,21 +708,6 @@ def update_average_color(color_value, selected_plot, selected_trace,
                     trace['line']['color'] = color_value['hex']
 
     return updated_acc_on, updated_acc_off, updated_adn_on, updated_adn_off
-
-#
-# Example legend-click callback (optional)
-#
-@app.callback(
-    Output('acc', 'children'),
-    Input('graph', 'click_legend')
-)
-def display_clicked_legend(legend_data):
-    if legend_data is None:
-        return "Click on a legend item to see its details."
-    clicked_trace_name = legend_data['trace']['name']
-    clicked_trace_id = legend_data['trace']['uid']
-    print(f"Clicked Legend: ID={clicked_trace_id}, Name={clicked_trace_name}")
-    return f"Clicked Legend: ID={clicked_trace_id}, Name={clicked_trace_name}"
 
 if __name__ == '__main__':
     time.sleep(1)
