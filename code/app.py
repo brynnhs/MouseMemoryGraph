@@ -107,7 +107,10 @@ app.layout = html.Div([
     # Footer image
     html.Div([
         html.Img(src='assets/footer.png', style={'width': '100%', 'height': 'auto'})
-    ], style={'text-align': 'center', 'margin-top': '10px'})
+    ], style={'text-align': 'center', 'margin-top': '10px'}),
+
+    # Store component to persist state
+    dcc.Store(id='app-state', storage_type='session')
 ])
 
 def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
@@ -755,6 +758,34 @@ def update_average_color(color_value, selected_plot, selected_trace,
                     trace['line']['color'] = color_value['hex']
 
     return updated_acc_on, updated_acc_off, updated_adn_on, updated_adn_off
+
+# Callback to print the selected group
+@app.callback(
+    Output('group-dropdown', 'value'),
+    Input('group-dropdown', 'value')
+)
+def print_selected_group(selected_group):
+    print(f"Selected group: {selected_group}")
+    return selected_group
+
+# Callback to update the app state
+@app.callback(
+    Output('app-state', 'data'),
+    [Input('mouse-dropdown', 'value'),
+     Input('group-dropdown', 'value')],
+    State('app-state', 'data')
+)
+def update_app_state(selected_mouse, selected_group, data):
+    print(data)
+    if data is None:
+        data = {
+            'selected_mouse': None,
+            'selected_group': {}
+            }
+    data['selected_mouse'] = selected_mouse
+    data['selected_group'][selected_mouse] = selected_group
+    print(f"Updated app state: {data}")
+    return data
 
 if __name__ == '__main__':
     time.sleep(1)
