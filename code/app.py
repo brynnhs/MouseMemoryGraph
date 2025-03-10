@@ -11,6 +11,8 @@ import sys
 import time
 import webbrowser
 
+from dash_local_react_components import load_react_component
+
 # Determine the base path (works both for script and executable)
 if getattr(sys, 'frozen', False):
     base_path = sys._MEIPASS
@@ -53,6 +55,9 @@ load_raw_data()
 
 app = dash.Dash(__name__, assets_folder='../assets', suppress_callback_exceptions=True)
 
+# load component
+GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
+
 app.layout = html.Div([
     # Header image
     html.Div([
@@ -71,7 +76,11 @@ app.layout = html.Div([
             style={'width': '300px', 'margin': '0 auto'}
         )
     ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
-    
+    # NEW: Group dropdown for each mouse tab
+    html.Div([
+        GroupDropdown(id='group-dropdown', value=1)
+    ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
+
     # NEW: Two numeric inputs for epoch window: seconds before and after event
     html.Div([
         html.Label("Seconds Before Event:"),
@@ -132,6 +141,11 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
             hoverinfo="skip"
         ))
     fig_on.update_layout(title=f'{sensor} Onset Average Epoch', xaxis_title='Time (s)', yaxis_title='Signal')
+    fig_on.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+    fig_on.update_layout(
+        paper_bgcolor='rgba(0, 0, 0, 0)',
+        plot_bgcolor='rgba(0, 0, 0, 0)'
+    )
     
     # Offset average plot
     fig_off = go.Figure()
@@ -158,6 +172,11 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
             hoverinfo="skip"
         ))
     fig_off.update_layout(title=f'{sensor} Offset Average Epoch', xaxis_title='Time (s)', yaxis_title='Signal')
+    fig_off.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+    fig_off.update_layout(
+        paper_bgcolor='rgba(0, 0, 0, 0)',
+        plot_bgcolor='rgba(0, 0, 0, 0)'
+    )
     
     return fig_on, fig_off
 
@@ -380,7 +399,7 @@ def update_tab(selected_value, seconds_before, seconds_after):
                 daq.ColorPicker(
                     id='average-color-picker',
                     label='Pick a color for the Average Tab',
-                    value={'hex': '#00FF00'}  # default color
+                    value={'rgb': dict(r=0, g=0, b=255, a=0)}  # default color
                 )
             ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
         ])
@@ -455,7 +474,7 @@ def update_tab(selected_value, seconds_before, seconds_after):
                     daq.ColorPicker(
                         id='acc-color-picker',
                         label='Pick a color for ACC',
-                        value={'hex': '#0000FF'}
+                        value={'rgb': dict(r=128, g=128, b=128, a=0)}
                     )
                 ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'}),
                 
@@ -480,7 +499,7 @@ def update_tab(selected_value, seconds_before, seconds_after):
                     daq.ColorPicker(
                         id='adn-color-picker',
                         label='Pick a color for ADN',
-                        value={'hex': '#FF0000'}
+                        value={'rgb': dict(r=128, g=128, b=128, a=0)}
                     )
                 ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
             ], style={'display': 'flex', 'flex-direction': 'row', 'justify-content': 'space-around'})
