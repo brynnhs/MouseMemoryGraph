@@ -293,6 +293,27 @@ class MergeDatasets():
         epochs = [[(beg, end), inter, self.df[column+'.zdFF'][beg:end]] for (beg, end), inter in epochs]
         
         return epochs
+    
+    def get_epoch_average(self, intervals, column, before=2, after=2, type='on'):
+        """
+        Get the average signal before and after each event.
+        """
+
+        epochs = self.get_epoch_data(intervals, column, before, after, type)
+
+        epoch_avg = []
+        for epoch in epochs:
+            signal = epoch[2]
+            before_frames = int(before * self.fps)
+
+            before_signal = signal[:before_frames]
+            after_signal = signal[before_frames:]
+
+            epoch_avg.append([before_signal.mean(), after_signal.mean(), before_signal.mean() - after_signal.mean()])
+
+        return epoch_avg
+
+
 
 # --- Dynamic Data Loading for Multiple Mice ---
 
