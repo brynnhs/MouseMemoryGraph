@@ -15,6 +15,7 @@ from dash_local_react_components import load_react_component
 from visualize import generate_average_plot, generate_plots
 
 dash.register_page(__name__, path='/average')
+app = dash.get_app()
 
 # Determine the base path (works both for script and executable)
 if getattr(sys, 'frozen', False):
@@ -27,6 +28,9 @@ data_dir = os.path.abspath(data_dir)
 
 # Global container:
 mouse_data = {}
+
+# load component
+GroupSelection = load_react_component(app, "components", "GroupSelection.js")
 
 def load_raw_data():
     """Load raw merged data for all mice and store in mouse_data."""
@@ -58,6 +62,9 @@ load_raw_data()
 
 layout = html.Div([
     # Numeric inputs for the epoch window
+    html.Div([
+        GroupSelection(id='group-selection', value=1)
+    ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
     html.Div([
         html.Label("Seconds Before Event:"),
         dcc.Input(
