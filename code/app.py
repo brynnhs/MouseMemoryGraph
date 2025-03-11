@@ -1,17 +1,33 @@
-import plotly.graph_objs as go
-import pandas as pd
-import dash
-import numpy as np
 import os
-import dash_daq as daq
-from dash import dcc, html
-from dash.dependencies import Input, Output, State
-from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 import sys
 import time
 import webbrowser
-
+import dash
+import dash_daq as daq
+import numpy as np
+import pandas as pd
+from dash import dcc, html
+from dash.dependencies import Input, Output, State
+from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
+
+# Import visualization functions (from your separate file)
+from visualize import generate_average_plot, generate_plots
+# Import layout and utils
+from layout import create_layout
+
+def get_color_hex(color_value):
+    """
+    Given a color value from a ColorPicker, returns a hex string.
+    Expects either a dict with a 'hex' key or one with an 'rgb' key.
+    """
+    if isinstance(color_value, dict):
+        if 'hex' in color_value:
+            return color_value['hex']
+        elif 'rgb' in color_value:
+            rgb = color_value['rgb']
+            return '#{:02x}{:02x}{:02x}'.format(rgb.get('r', 0), rgb.get('g', 0), rgb.get('b', 0))
+    return color_value  # fallback if not a dict
 
 # Determine the base path (works both for script and executable)
 if getattr(sys, 'frozen', False):
@@ -55,308 +71,14 @@ load_raw_data()
 
 app = dash.Dash(__name__, assets_folder='../assets', suppress_callback_exceptions=True)
 
-# load component
-GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
+# Set the layout using our create_layout function from layout.py.
+app.layout = create_layout(app, mouse_data)
 
-app.layout = html.Div([
-    # Header image
-    html.Div([
-        html.Img(src='assets/header.png', style={'width': '100%', 'height': 'auto'})
-    ], style={'text-align': 'center', 'margin-bottom': '10px'}),
-    
-    # Dropdown (options are set from the loaded data)
-    html.Div([
-        dcc.Dropdown(
-            id='mouse-dropdown',
-            options=(
-                [{"label": "Averaged Data", "value": "average"}] +
-                [{"label": f"Mouse {mouse}", "value": mouse} for mouse in mouse_data]
-            ) if mouse_data else [{"label": "No data available", "value": "None"}],
-            value="average" if mouse_data else "None",
-            style={'width': '300px', 'margin': '0 auto'}
-        )
-    ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
-    # NEW: Group dropdown for each mouse tab
-    html.Div([
-        GroupDropdown(id='group-dropdown', value=1)
-    ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
+# -----------------------------
+# CALLBACKS AND APP LOGIC BELOW
+# (Keep callbacks and other logic in app.py)
+# -----------------------------
 
-    # NEW: Two numeric inputs for epoch window: seconds before and after event
-    html.Div([
-        html.Label("Seconds Before Event:"),
-        dcc.Input(
-            id="seconds-before",
-            type="number",
-            placeholder="Enter seconds before (e.g. 2)",
-            value=2,
-            style={'margin-left': '10px', 'margin-right': '20px'}
-        ),
-        html.Label("Seconds After Event:"),
-        dcc.Input(
-            id="seconds-after",
-            type="number",
-            placeholder="Enter seconds after (e.g. 2)",
-            value=2,
-            style={'margin-left': '10px'}
-        )
-    ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
-    
-    # Main content area for graphs
-    html.Div(id='tab-content'),
-    
-    # Footer image
-    html.Div([
-        html.Img(src='assets/footer.png', style={'width': '100%', 'height': 'auto'})
-    ], style={'text-align': 'center', 'margin-top': '10px'}),
-
-    # Store component to persist state
-    dcc.Store(id='app-state', storage_type='session')
-])
-
-def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
-    """
-    Generate mean ± std plots for ON and OFF epochs, for all mice combined.
-    The window is from -before to +after.
-    """
-    x = np.arange(-before, after, 1/fps)
-    # Onset average plot
-    fig_on = go.Figure()
-    if epochs_on:
-        arr = np.array(epochs_on)
-        mean_on = np.mean(arr, axis=0)
-        std_on = np.std(arr, axis=0)
-        fig_on.add_trace(go.Scatter(x=x, y=mean_on, mode='lines', name='Mean'))
-        fig_on.add_trace(go.Scatter(
-            x=x, y=mean_on+std_on,
-            mode='lines',
-            fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-        fig_on.add_trace(go.Scatter(
-            x=x, y=mean_on-std_on,
-            mode='lines',
-            fill='tonexty',
-            fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-    fig_on.update_layout(title=f'{sensor} Onset Average Epoch', xaxis_title='Time (s)', yaxis_title='Signal')
-    fig_on.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-    fig_on.update_layout(
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(0, 0, 0, 0)'
-    )
-    
-    # Offset average plot
-    fig_off = go.Figure()
-    if epochs_off:
-        arr = np.array(epochs_off)
-        mean_off = np.mean(arr, axis=0)
-        std_off = np.std(arr, axis=0)
-        fig_off.add_trace(go.Scatter(x=x, y=mean_off, mode='lines', name='Mean'))
-        fig_off.add_trace(go.Scatter(
-            x=x, y=mean_off+std_off,
-            mode='lines',
-            fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-        fig_off.add_trace(go.Scatter(
-            x=x, y=mean_off-std_off,
-            mode='lines',
-            fill='tonexty',
-            fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-    fig_off.update_layout(title=f'{sensor} Offset Average Epoch', xaxis_title='Time (s)', yaxis_title='Signal')
-    fig_off.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-    fig_off.update_layout(
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(0, 0, 0, 0)'
-    )
-    
-    return fig_on, fig_off
-
-def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, name='ACC'):
-    """
-    Generate detailed plots for the given sensor: 
-      - The full signals figure 
-      - The interval_on figure (with multiple onsets + mean) 
-      - The interval_off figure (with multiple offsets + mean)
-    The window for the epoch plots is from -before to +after.
-    """
-    fig = go.Figure(layout_yaxis_range=[-5, 5])
-    interval_on = go.Figure(layout_yaxis_range=[-4, 4])
-    interval_off = go.Figure(layout_yaxis_range=[-4, 4])
-    avg_change = go.Figure(layout_yaxis_range=[-2, 2],)
-    x = np.arange(0, len(mergeddataset) / fps, 1 / fps)
-    
-    # Full signals
-    fig.add_trace(go.Scatter(
-        x=x, 
-        y=mergeddataset[f'{name}.signal'], 
-        mode='lines', 
-        name=f'{name} Signal', 
-        line=dict(color='gray', width=1, dash='solid'), 
-        opacity=0.5
-    ))
-    fig.add_trace(go.Scatter(
-        x=x, 
-        y=mergeddataset[f'{name}.control'], 
-        mode='lines', 
-        name=f'{name} Control', 
-        line=dict(color='gray', width=1, dash='solid'), 
-        opacity=0.5
-    ))
-    fig.add_trace(go.Scatter(
-        x=x, 
-        y=mergeddataset[f'{name}.zdFF'], 
-        mode='lines', 
-        name=f'{name} zdFF', 
-        line=dict(color='blue', width=2, dash='solid')
-    ))
-    fig.update_layout(title=f'{name} Signal, Control, and zdFF', xaxis_title='Time (s)', yaxis_title='Value')
-    
-    # Dummy traces for legend
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'freezing bouts > {after}s', 
-        marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
-    ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'freezing bouts < {after}s', 
-        marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
-    ))
-    
-    # Highlight intervals in the full figure
-    for on, off in intervals:
-        on_sec = on / fps
-        off_sec = off / fps
-        fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-    
-    # Now build the interval_on and interval_off figures
-    aggregate_on = []
-    aggregate_off = []
-    
-    for i, inter in enumerate(epochs_acc_on):
-        x_epoch = np.arange(-before, after, 1 / fps)
-        y_epoch = inter[2]
-        interval_on.add_trace(go.Scatter(
-            x=x_epoch, y=y_epoch, name=f'onset {i+1}', mode='lines', 
-            line=dict(color='gray', width=1, dash='solid'), opacity=0.5
-        ))
-        aggregate_on.append(y_epoch)
-        fig.add_vrect(
-            x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue', opacity=0.2, layer='below', line_width=0
-        )
-    
-    for i, inter in enumerate(epochs_acc_off):
-        x_epoch = np.arange(-before, after, 1 / fps)
-        y_epoch = inter[2]
-        interval_off.add_trace(go.Scatter(
-            x=x_epoch, y=y_epoch, name=f'offset {i+1}', mode='lines', 
-            line=dict(color='gray', width=1, dash='solid'), opacity=0.5
-        ))
-        aggregate_off.append(y_epoch)
-    
-    # Compute mean & std for onsets
-    aggregate_on = np.array(aggregate_on)
-    if len(aggregate_on) > 0:
-        mean_on = np.mean(aggregate_on, axis=0)
-        std_on = np.std(aggregate_on, axis=0)
-        interval_on.add_trace(go.Scatter(
-            x=x_epoch, y=mean_on, mode='lines', name='mean signal', 
-            line=dict(color='blue', width=2, dash='solid')
-        ))
-        interval_on.add_trace(go.Scatter(
-            x=x_epoch, y=mean_on + std_on, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'), showlegend=False
-        ))
-        interval_on.add_trace(go.Scatter(
-            x=x_epoch, y=mean_on - std_on, fill='tonexty', hoverinfo="skip",
-            fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
-        ))
-        interval_on.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-
-    # Compute mean & std for offsets
-    aggregate_off = np.array(aggregate_off)
-    if len(aggregate_off) > 0:
-        mean_off = np.mean(aggregate_off, axis=0)
-        std_off = np.std(aggregate_off, axis=0)
-        interval_off.add_trace(go.Scatter(
-            x=x_epoch, y=mean_off, mode='lines', name='mean signal', 
-            line=dict(color='blue', width=2, dash='solid')
-        ))
-        interval_off.add_trace(go.Scatter(
-            x=x_epoch, y=mean_off + std_off, hoverinfo="skip", fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'), showlegend=False
-        ))
-        interval_off.add_trace(go.Scatter(
-            x=x_epoch, y=mean_off - std_off, fill='tonexty', hoverinfo="skip",
-            fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
-        ))
-        interval_off.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-
-    # Bar plot for the zdFF change
-    if avg_on and avg_off:
-        avg_on = np.array(avg_on)
-        avg_off = np.array(avg_off)
-        avg_change.add_trace(go.Scatter(
-            x=['Onset'] * len(avg_on[:,2]),
-            y=avg_on[:,2],
-            mode='markers',
-            marker_color='blue'
-        ))
-        avg_change.add_trace(go.Scatter(
-            x=['Offset'] * len(avg_off[:,2]),
-            y=avg_off[:,2],
-            mode='markers',
-            marker_color='lightblue'
-        ))
-        avg_change.add_trace(go.Bar(
-            x=['Onset', 'Offset'],
-            y=[np.mean(avg_on[:,2]), np.mean(avg_off[:,2])],
-            marker_color=['blue', 'lightblue'],
-            opacity=0.3,
-        ))
-        avg_change.update_layout(title=f'{name} zdFF Change', xaxis_title='Event', yaxis_title='zdFF')
-    
-    interval_on.update_layout(
-        title='Signal around event onset',
-        xaxis_title='Time (s)',
-        yaxis_title='Signal',
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(10, 10, 10, 0.02)'
-    )
-    interval_off.update_layout(
-        title='Signal around event offset',
-        xaxis_title='Time (s)',
-        yaxis_title='Signal',
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(10, 10, 10, 0.02)'
-    )
-    fig.update_layout(
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(0, 0, 0, 0)'
-    )
-    avg_change.update_layout(
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(0, 0, 0, 0)',
-        bargap=0.8,
-        showlegend=False
-    )
-    
-    return fig, interval_on, interval_off, avg_change
-
-#
-# MAIN CALLBACK: Renders the layout for either "Averaged Data" or a specific mouse
-#                and uses the user-provided "seconds-before" and "seconds-after" to define the epoch window.
-#
 @app.callback(
     Output('tab-content', 'children'),
     [Input('mouse-dropdown', 'value'),
@@ -433,7 +155,7 @@ def update_tab(selected_value, seconds_before, seconds_after):
                 daq.ColorPicker(
                     id='average-color-picker',
                     label='Pick a color for the Average Tab',
-                    value={'rgb': dict(r=0, g=0, b=255, a=0)}  # default color
+                    value={'rgb': dict(r=0, g=0, b=255, a=0)}
                 )
             ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
         ])
@@ -476,11 +198,11 @@ def update_tab(selected_value, seconds_before, seconds_after):
                 dcc.Graph(id='acc', figure=acc_full),
                 html.Div([
                     dcc.Graph(id='accintervalon', figure=acc_interval_on, 
-                            style={'width': '35%', 'display': 'inline-block'}),
+                              style={'width': '35%', 'display': 'inline-block'}),
                     dcc.Graph(id='accintervaloff', figure=acc_interval_off, 
-                            style={'width': '35%', 'display': 'inline-block'}),
+                              style={'width': '35%', 'display': 'inline-block'}),
                     dcc.Graph(id='accchange', figure=acc_change,
-                            style={'width': '30%', 'display': 'inline-block'})
+                              style={'width': '30%', 'display': 'inline-block'})
                 ], style={'display': 'flex', 'justify-content': 'space-around'})
             ], style={'margin-bottom': '40px'}),
             
@@ -490,15 +212,15 @@ def update_tab(selected_value, seconds_before, seconds_after):
                 dcc.Graph(id='adn', figure=adn_full),
                 html.Div([
                     dcc.Graph(id='adnintervalon', figure=adn_interval_on, 
-                            style={'width': '35%', 'display': 'inline-block'}),
+                              style={'width': '35%', 'display': 'inline-block'}),
                     dcc.Graph(id='adnintervaloff', figure=adn_interval_off, 
-                            style={'width': '35%', 'display': 'inline-block'}),
+                              style={'width': '35%', 'display': 'inline-block'}),
                     dcc.Graph(id='adnchange', figure=adn_change,
-                            style={'width': '30%', 'display': 'inline-block'})
+                              style={'width': '30%', 'display': 'inline-block'})
                 ], style={'display': 'flex', 'justify-content': 'space-around'})
             ], style={'margin-bottom': '40px'}),
             
-            # Optionally, include your color picker sections here
+            # Color picker sections for ACC and ADN
             html.Div([
                 html.Div([
                     html.H3("ACC Color Settings"),
@@ -554,9 +276,7 @@ def update_tab(selected_value, seconds_before, seconds_after):
         
         return content
 
-#
-# SINGLE-MOUSE: Dynamic trace dropdowns for ACC & ADN
-#
+# SINGLE-MOUSE: Dynamic trace dropdowns for ACC & ADN callbacks...
 @app.callback(
     [Output('acc-trace-dropdown', 'options'),
      Output('acc-trace-dropdown', 'value')],
@@ -611,10 +331,7 @@ def update_adn_trace_dropdown(selected_plot, full_fig, interval_on_fig, interval
     default_val = options[0]['value'] if options else None
     return options, default_val
 
-
-#
-# SINGLE-MOUSE: Color picker callbacks for ACC & ADN
-#
+# SINGLE-MOUSE: Color picker callbacks for ACC & ADN.
 @app.callback(
     [Output('acc', 'figure'),
      Output('accintervalon', 'figure'),
@@ -634,24 +351,21 @@ def update_acc_color(color_value, selected_plot, selected_trace, full_fig, inter
     if not selected_trace or not color_value:
         return updated_full, updated_on, updated_off
 
+    color_hex = get_color_hex(color_value)
+
     if selected_plot == 'full' and 'data' in updated_full:
         for trace in updated_full['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
-    
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
     elif selected_plot == 'interval_on' and 'data' in updated_on:
         for trace in updated_on['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
-    
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
     elif selected_plot == 'interval_off' and 'data' in updated_off:
         for trace in updated_off['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
-    
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
+
     return updated_full, updated_on, updated_off
 
 @app.callback(
@@ -673,29 +387,24 @@ def update_adn_color(color_value, selected_plot, selected_trace, full_fig, inter
     if not selected_trace or not color_value:
         return updated_full, updated_on, updated_off
 
+    color_hex = get_color_hex(color_value)
+
     if selected_plot == 'full' and 'data' in updated_full:
         for trace in updated_full['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
-    
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
     elif selected_plot == 'interval_on' and 'data' in updated_on:
         for trace in updated_on['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
-    
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
     elif selected_plot == 'interval_off' and 'data' in updated_off:
         for trace in updated_off['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
-    
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
+
     return updated_full, updated_on, updated_off
 
-#
-# AVERAGE TAB: Dynamic trace dropdown & color callback
-#
+# AVERAGE TAB: Dynamic trace dropdown & color callback.
 @app.callback(
     [Output('average-trace-dropdown', 'options'),
      Output('average-trace-dropdown', 'value')],
@@ -749,33 +458,28 @@ def update_average_color(color_value, selected_plot, selected_trace,
     if not selected_trace or not color_value:
         return updated_acc_on, updated_acc_off, updated_adn_on, updated_adn_off
 
+    color_hex = get_color_hex(color_value)
+
     if selected_plot == 'accavgon' and 'data' in updated_acc_on:
         for trace in updated_acc_on['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
-
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
     elif selected_plot == 'accavgoff' and 'data' in updated_acc_off:
         for trace in updated_acc_off['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
-
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
     elif selected_plot == 'adnavgon' and 'data' in updated_adn_on:
         for trace in updated_adn_on['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
-
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
     elif selected_plot == 'adnavgoff' and 'data' in updated_adn_off:
         for trace in updated_adn_off['data']:
-            if trace.get('name') == selected_trace:
-                if 'line' in trace:
-                    trace['line']['color'] = color_value['hex']
+            if trace.get('name') == selected_trace and 'line' in trace:
+                trace['line']['color'] = color_hex
 
     return updated_acc_on, updated_acc_off, updated_adn_on, updated_adn_off
 
-# Callback to print the selected group
+# Callback to print the selected group.
 @app.callback(
     Output('group-dropdown', 'value'),
     Input('group-dropdown', 'value')
@@ -784,7 +488,7 @@ def print_selected_group(selected_group):
     print(f"Selected group: {selected_group}")
     return selected_group
 
-# Callback to update the app state
+# Callback to update the app state.
 @app.callback(
     Output('app-state', 'data'),
     [Input('mouse-dropdown', 'value'),
@@ -797,7 +501,7 @@ def update_app_state(selected_mouse, selected_group, data):
         data = {
             'selected_mouse': None,
             'selected_group': {}
-            }
+        }
     data['selected_mouse'] = selected_mouse
     data['selected_group'][selected_mouse] = selected_group
     print(f"Updated app state: {data}")
