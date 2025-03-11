@@ -15,6 +15,10 @@ from dash_local_react_components import load_react_component
 from visualize import generate_average_plot, generate_plots
 # Import layout and utils
 from layout import create_layout
+from utils import load_assignments, save_assignments
+
+# Global container for mouse condition assignments
+mouse_assignments = load_assignments()
 
 def get_color_hex(color_value):
     """
@@ -38,7 +42,7 @@ else:
 data_dir = os.path.join(base_path, "../data")
 data_dir = os.path.abspath(data_dir)
 
-# Global container:
+# Global container for mouse data:
 mouse_data = {}
 
 def load_raw_data():
@@ -71,7 +75,7 @@ load_raw_data()
 
 app = dash.Dash(__name__, use_pages=True, assets_folder='../assets')
 
-# load component
+# Load the GroupDropdown React component globally
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
 
 app.layout = html.Div([
@@ -80,25 +84,27 @@ app.layout = html.Div([
         html.Img(src='/assets/footer.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-bottom': '10px'}),
     
-    # Dropdown (options are set from the loaded data)
+    # Mouse selection dropdown (global navigation)
     html.Div([
         dcc.Dropdown(
             id='mouse-dropdown',
             options=(
-                [{"label": dcc.Link(children="Averaged Data" ,href="/average"), "value": "/average"}] +
-                [{"label": dcc.Link(children=f"Mouse {mouse}" ,href=f'/mouse/{mouse}'), "value": f'/mouse/{mouse}'} for mouse in mouse_data]
+                [{"label": dcc.Link(children="Averaged Data", href="/average"), "value": "/average"}] +
+                [{"label": dcc.Link(children=f"Mouse {mouse}", href=f'/mouse/{mouse}'), "value": f'/mouse/{mouse}'} for mouse in mouse_data]
             ) if mouse_data else [{"label": "No data available", "value": "None"}],
             value="Home" if mouse_data else "None",
             style={'width': '300px', 'margin': '0 auto'}
         )
     ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
 
+    # Page container for multi-page routing
     dash.page_container,
-    # NEW: Group dropdown for each mouse tab
+
+    # Global GroupDropdown appears on every page
     html.Div([
         GroupDropdown(id='group-dropdown', value=1)
     ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
-    
+
     # Footer image
     html.Div([
         html.Img(src='assets/footer.png', style={'width': '100%', 'height': 'auto'})
@@ -108,13 +114,39 @@ app.layout = html.Div([
     dcc.Store(id='app-state', storage_type='session')
 ])
 
+# Example callback for another page element (if needed)
 @app.callback(
-    dash.dependencies.Output('page-dropdown', 'value'),
-    [dash.dependencies.Input('page-dropdown', 'value')]
+    Output('page-dropdown', 'value'),
+    [Input('page-dropdown', 'value')]
 )
-
 def update_page(value):
     return value
+
+# Combined callback for handling both dropdown changes and URL updates.
+@app.callback(
+    Output('group-dropdown', 'value'),
+    [Input('group-dropdown', 'value'),
+     Input('url', 'pathname')],
+    [State('group-dropdown', 'value')]
+)
+def manage_mouse_assignment(new_value, pathname, current_value):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        # On initial load, use the stored assignment.
+        mouse_id = pathname.split('/')[-1]
+        return mouse_assignments.get(mouse_id, 'default_group')
+    triggered_id = ctx.triggered[0]['prop_id']
+    if triggered_id.startswith('group-dropdown'):
+        # User changed the dropdown value.
+        mouse_id = pathname.split('/')[-1]
+        mouse_assignments[mouse_id] = new_value
+        save_assignments(mouse_assignments)
+        return new_value
+    elif triggered_id.startswith('url'):
+        # URL changed; load the saved assignment.
+        mouse_id = pathname.split('/')[-1]
+        return mouse_assignments.get(mouse_id, 'default_group')
+    return current_value
 
 app.index_string = '''
 <!DOCTYPE html>
