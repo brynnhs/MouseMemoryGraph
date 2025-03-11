@@ -98,36 +98,30 @@ layout = html.Div([
      Input('group-selection', 'value')]
 )
 def update_graph(seconds_before, seconds_after, selected_groups):
-    # If no groups are selected, default to include all groups (1, 2, 3)
+    # Default to all groups if none selected.
     if not selected_groups:
         selected_groups = [1, 2, 3]
-    
-    # Reload condition assignments (to ensure they are up to date)
+
+    # Reload condition assignments mapping: mouse id -> group
     assignments = load_assignments()
 
-    acc_on_all = []
-    acc_off_all = []
-    adn_on_all = []
-    adn_off_all = []
+    # Initialize dictionaries for each sensor and epoch type.
+    acc_on_dict = {}
+    acc_off_dict = {}
+    adn_on_dict = {}
+    adn_off_dict = {}
     fps = None
-    
-    # Debug: print selected groups
-    print("Selected groups:", selected_groups)
-    
-    # Process each mouse only if its assigned condition group is in the selected groups.
+
+    # Process each mouse if its condition is selected.
     for mouse, merged in mouse_data.items():
         mouse_group = assignments.get(mouse)
         try:
-            # Convert to integer for consistency if needed
             mouse_group = int(mouse_group)
-        except Exception as e:
-            print(f"Warning: unable to convert mouse group for {mouse}: {mouse_group}")
-        
-        print(f"Mouse: {mouse}, Group: {mouse_group}")
-        
+        except:
+            continue  # Skip if conversion fails.
         if mouse_group not in selected_groups:
-            continue  # Skip this mouse
-        
+            continue
+
         intervals = merged.get_freezing_intervals()
         if fps is None:
             fps = merged.fps
@@ -136,25 +130,19 @@ def update_graph(seconds_before, seconds_after, selected_groups):
         adn_epochs_on = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after)
         adn_epochs_off = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off')
         
-        for epoch in acc_epochs_on:
-            acc_on_all.append(epoch[2])
-        for epoch in acc_epochs_off:
-            acc_off_all.append(epoch[2])
-        for epoch in adn_epochs_on:
-            adn_on_all.append(epoch[2])
-        for epoch in adn_epochs_off:
-            adn_off_all.append(epoch[2])
+        # Append epochs to the proper group in the dictionaries.
+        acc_on_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in acc_epochs_on])
+        acc_off_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in acc_epochs_off])
+        adn_on_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in adn_epochs_on])
+        adn_off_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in adn_epochs_off])
     
-    # Debug: print the aggregated data counts
-    print("Aggregated counts:", len(acc_on_all), len(acc_off_all), len(adn_on_all), len(adn_off_all))
-    
-    # If no data was collected, return a message.
-    if fps is None or (not acc_on_all and not acc_off_all and not adn_on_all and not adn_off_all):
+    # If no data was collected, show a message.
+    if fps is None:
         return html.Div("No data available for the selected condition groups.")
     
-    # Generate the average plots
-    acc_on_fig, acc_off_fig = generate_average_plot("ACC", acc_on_all, acc_off_all, seconds_before, seconds_after, fps)
-    adn_on_fig, adn_off_fig = generate_average_plot("ADN", adn_on_all, adn_off_all, seconds_before, seconds_after, fps)
+    # Generate the average plots using dictionaries.
+    acc_on_fig, acc_off_fig = generate_average_plot("ACC", acc_on_dict, acc_off_dict, seconds_before, seconds_after, fps)
+    adn_on_fig, adn_off_fig = generate_average_plot("ADN", adn_on_dict, adn_off_dict, seconds_before, seconds_after, fps)
     
     content = html.Div([
         html.Div([
