@@ -309,7 +309,7 @@ class MergeDatasets():
             before_signal = signal[:before_frames]
             after_signal = signal[before_frames:]
 
-            epoch_avg.append((before_signal.mean(), after_signal.mean(), before_signal.mean() - after_signal.mean()))
+            epoch_avg.append([before_signal.mean(), after_signal.mean(), before_signal.mean() - after_signal.mean()])
 
         return epoch_avg
 

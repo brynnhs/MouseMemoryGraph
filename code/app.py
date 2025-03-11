@@ -194,7 +194,7 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
     fig = go.Figure(layout_yaxis_range=[-5, 5])
     interval_on = go.Figure(layout_yaxis_range=[-4, 4])
     interval_off = go.Figure(layout_yaxis_range=[-4, 4])
-    avg_change = go.Figure()
+    avg_change = go.Figure(layout_yaxis_range=[-2, 2],)
     x = np.arange(0, len(mergeddataset) / fps, 1 / fps)
     
     # Full signals
@@ -304,17 +304,27 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
 
     # Bar plot for the zdFF change
     if avg_on and avg_off:
+        avg_on = np.array(avg_on)
+        avg_off = np.array(avg_off)
         avg_change.add_trace(go.Scatter(
-            x=np.ones_like(avg_on[:2]),
-            y=avg_on[:2],
+            x=['Onset'] * len(avg_on[:,2]),
+            y=avg_on[:,2],
+            mode='markers',
             marker_color='blue'
         ))
         avg_change.add_trace(go.Scatter(
-            x=np.ones_like(avg_off[:2]) * 2,
-            y=avg_off[:2],
+            x=['Offset'] * len(avg_off[:,2]),
+            y=avg_off[:,2],
+            mode='markers',
             marker_color='lightblue'
         ))
-        avg_change.update_layout(title=f'{name} zdFF Change', xaxis_title='Epoch', yaxis_title='zdFF')
+        avg_change.add_trace(go.Bar(
+            x=['Onset', 'Offset'],
+            y=[np.mean(avg_on[:,2]), np.mean(avg_off[:,2])],
+            marker_color=['blue', 'lightblue'],
+            opacity=0.3,
+        ))
+        avg_change.update_layout(title=f'{name} zdFF Change', xaxis_title='Event', yaxis_title='zdFF')
     
     interval_on.update_layout(
         title='Signal around event onset',
@@ -333,6 +343,12 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
     fig.update_layout(
         paper_bgcolor='rgba(0, 0, 0, 0)',
         plot_bgcolor='rgba(0, 0, 0, 0)'
+    )
+    avg_change.update_layout(
+        paper_bgcolor='rgba(0, 0, 0, 0)',
+        plot_bgcolor='rgba(0, 0, 0, 0)',
+        bargap=0.8,
+        showlegend=False
     )
     
     return fig, interval_on, interval_off, avg_change
