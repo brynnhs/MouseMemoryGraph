@@ -1,17 +1,33 @@
-import plotly.graph_objs as go
-import pandas as pd
-import dash
-import numpy as np
 import os
-import dash_daq as daq
-from dash import dcc, html
-from dash.dependencies import Input, Output, State
-from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 import sys
 import time
 import webbrowser
-
+import dash
+import dash_daq as daq
+import numpy as np
+import pandas as pd
+from dash import dcc, html
+from dash.dependencies import Input, Output, State
+from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
+
+# Import visualization functions (from your separate file)
+from visualize import generate_average_plot, generate_plots
+# Import layout and utils
+from layout import create_layout
+
+def get_color_hex(color_value):
+    """
+    Given a color value from a ColorPicker, returns a hex string.
+    Expects either a dict with a 'hex' key or one with an 'rgb' key.
+    """
+    if isinstance(color_value, dict):
+        if 'hex' in color_value:
+            return color_value['hex']
+        elif 'rgb' in color_value:
+            rgb = color_value['rgb']
+            return '#{:02x}{:02x}{:02x}'.format(rgb.get('r', 0), rgb.get('g', 0), rgb.get('b', 0))
+    return color_value  # fallback if not a dict
 
 # Determine the base path (works both for script and executable)
 if getattr(sys, 'frozen', False):
@@ -96,6 +112,7 @@ app.layout = html.Div([
     dash.dependencies.Output('page-dropdown', 'value'),
     [dash.dependencies.Input('page-dropdown', 'value')]
 )
+
 def update_page(value):
     return value
 
