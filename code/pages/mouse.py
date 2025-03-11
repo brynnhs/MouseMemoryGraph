@@ -83,7 +83,6 @@ def layout(id=None, **other_unknown_query_strings):
         html.Div(id='mouse-content')
     ])
 
-
 @callback(
     Output('mouse-content', 'children'),
     [Input('seconds-before', 'value'),
