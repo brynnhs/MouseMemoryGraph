@@ -1,85 +1,170 @@
 import plotly.graph_objs as go
-import pandas as pd
-import dash
 import numpy as np
-import os
-import dash_daq as daq
-from dash import dcc, html
-from dash.dependencies import Input, Output, State
-from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
-import sys
-import time
-import webbrowser
-
-from dash_local_react_components import load_react_component
 
 def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
     """
-    Generate mean ± std plots for ON and OFF epochs, for all mice combined.
-    The window is from -before to +after.
-    """
-    x = np.arange(-before, after, 1 / fps)
-    # Onset average plot
-    fig_on = go.Figure()
-    if epochs_on:
-        arr = np.array(epochs_on)
-        mean_on = np.mean(arr, axis=0)
-        std_on = np.std(arr, axis=0)
-        fig_on.add_trace(go.Scatter(x=x, y=mean_on, mode='lines', name='Mean'))
-        fig_on.add_trace(go.Scatter(
-            x=x, y=mean_on + std_on,
-            mode='lines',
-            fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-        fig_on.add_trace(go.Scatter(
-            x=x, y=mean_on - std_on,
-            mode='lines',
-            fill='tonexty',
-            fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-    fig_on.update_layout(title=f'{sensor} Onset Average Epoch', xaxis_title='Time (s)', yaxis_title='Signal')
-    fig_on.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-    fig_on.update_layout(
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(0, 0, 0, 0)'
-    )
+    Generate average plots for ON and OFF epochs.
     
-    # Offset average plot
-    fig_off = go.Figure()
-    if epochs_off:
-        arr = np.array(epochs_off)
-        mean_off = np.mean(arr, axis=0)
-        std_off = np.std(arr, axis=0)
-        fig_off.add_trace(go.Scatter(x=x, y=mean_off, mode='lines', name='Mean'))
-        fig_off.add_trace(go.Scatter(
-            x=x, y=mean_off + std_off,
-            mode='lines',
-            fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-        fig_off.add_trace(go.Scatter(
-            x=x, y=mean_off - std_off,
-            mode='lines',
-            fill='tonexty',
-            fillcolor='rgba(0, 0, 255, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            showlegend=False,
-            hoverinfo="skip"
-        ))
-    fig_off.update_layout(title=f'{sensor} Offset Average Epoch', xaxis_title='Time (s)', yaxis_title='Signal')
-    fig_off.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-    fig_off.update_layout(
-        paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(0, 0, 0, 0)'
+    If epochs_on (or epochs_off) is a dictionary, then:
+      - For each key (group), a trace is added showing that group's average.
+      - An overall average (mean and std) across all groups is computed and added as a separate trace.
+    If epochs_on is a list, the function behaves as before.
+    """
+    # Create common x-axis based on the epoch window and fps.
+    x = np.arange(-before, after, 1 / fps)
+    
+    # ----- Onset Plot -----
+    fig_on = go.Figure()
+    
+    # Check if epochs_on is a dictionary (grouped data)
+    if isinstance(epochs_on, dict):
+        overall_on = []
+        # Add a trace for each group's average
+        for group, group_epochs in epochs_on.items():
+            if not group_epochs:
+                continue
+            arr = np.array(group_epochs)  # shape: (n_epochs, len(x))
+            mean_on = np.mean(arr, axis=0)
+            # Collect data for overall average
+            overall_on.extend(group_epochs)
+            fig_on.add_trace(go.Scatter(
+                x=x, y=mean_on, mode='lines',
+                name=f'Group {group} Average'
+            ))
+        # Now add the overall average trace (if any epochs were collected)
+        if overall_on:
+            arr_overall = np.array(overall_on)
+            mean_overall = np.mean(arr_overall, axis=0)
+            std_overall = np.std(arr_overall, axis=0)
+            fig_on.add_trace(go.Scatter(
+                x=x, y=mean_overall, mode='lines',
+                name='Overall Average',
+                line=dict(width=3, dash='dash')
+            ))
+            fig_on.add_trace(go.Scatter(
+                x=x, y=mean_overall + std_overall,
+                mode='lines',
+                line=dict(color='rgba(0,0,0,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+            fig_on.add_trace(go.Scatter(
+                x=x, y=mean_overall - std_overall,
+                mode='lines',
+                fill='tonexty',
+                fillcolor='rgba(0,0,255,0.1)',
+                line=dict(color='rgba(0,0,0,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+    else:
+        # epochs_on is a list: use the original behavior.
+        if epochs_on:
+            arr = np.array(epochs_on)
+            mean_on = np.mean(arr, axis=0)
+            std_on = np.std(arr, axis=0)
+            fig_on.add_trace(go.Scatter(
+                x=x, y=mean_on, mode='lines', name='Mean'
+            ))
+            fig_on.add_trace(go.Scatter(
+                x=x, y=mean_on + std_on,
+                mode='lines',
+                fillcolor='rgba(0, 0, 255, 0.1)',
+                line=dict(color='rgba(255,255,255,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+            fig_on.add_trace(go.Scatter(
+                x=x, y=mean_on - std_on,
+                mode='lines',
+                fill='tonexty',
+                fillcolor='rgba(0, 0, 255, 0.1)',
+                line=dict(color='rgba(255,255,255,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+    fig_on.update_layout(
+        title=f'{sensor} Onset Average Epoch',
+        xaxis_title='Time (s)',
+        yaxis_title='Signal',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
     )
+    fig_on.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+    
+    # ----- Offset Plot -----
+    fig_off = go.Figure()
+    
+    if isinstance(epochs_off, dict):
+        overall_off = []
+        for group, group_epochs in epochs_off.items():
+            if not group_epochs:
+                continue
+            arr = np.array(group_epochs)
+            mean_off = np.mean(arr, axis=0)
+            overall_off.extend(group_epochs)
+            fig_off.add_trace(go.Scatter(
+                x=x, y=mean_off, mode='lines',
+                name=f'Group {group} Average'
+            ))
+        if overall_off:
+            arr_overall = np.array(overall_off)
+            mean_overall = np.mean(arr_overall, axis=0)
+            std_overall = np.std(arr_overall, axis=0)
+            fig_off.add_trace(go.Scatter(
+                x=x, y=mean_overall, mode='lines',
+                name='Overall Average',
+                line=dict(width=3, dash='dash')
+            ))
+            fig_off.add_trace(go.Scatter(
+                x=x, y=mean_overall + std_overall,
+                mode='lines',
+                line=dict(color='rgba(0,0,0,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+            fig_off.add_trace(go.Scatter(
+                x=x, y=mean_overall - std_overall,
+                mode='lines',
+                fill='tonexty',
+                fillcolor='rgba(0,0,255,0.1)',
+                line=dict(color='rgba(0,0,0,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+    else:
+        if epochs_off:
+            arr = np.array(epochs_off)
+            mean_off = np.mean(arr, axis=0)
+            std_off = np.std(arr, axis=0)
+            fig_off.add_trace(go.Scatter(
+                x=x, y=mean_off, mode='lines', name='Mean'
+            ))
+            fig_off.add_trace(go.Scatter(
+                x=x, y=mean_off + std_off,
+                mode='lines',
+                fillcolor='rgba(0,0,255,0.1)',
+                line=dict(color='rgba(255,255,255,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+            fig_off.add_trace(go.Scatter(
+                x=x, y=mean_off - std_off,
+                mode='lines',
+                fill='tonexty',
+                fillcolor='rgba(0,0,255,0.1)',
+                line=dict(color='rgba(255,255,255,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+    fig_off.update_layout(
+        title=f'{sensor} Offset Average Epoch',
+        xaxis_title='Time (s)',
+        yaxis_title='Signal',
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    fig_off.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
     
     return fig_on, fig_off
 
@@ -89,8 +174,8 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
       - The full signals figure 
       - The interval_on figure (with multiple onsets + mean) 
       - The interval_off figure (with multiple offsets + mean)
-    The window for the epoch plots is from -before to +after.
     """
+    # [Original code remains unchanged...]
     fig = go.Figure(layout_yaxis_range=[-5, 5])
     interval_on = go.Figure(layout_yaxis_range=[-4, 4])
     interval_off = go.Figure(layout_yaxis_range=[-4, 4])
@@ -182,7 +267,7 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
             fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
         ))
         interval_on.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-
+    
     # Compute mean & std for offsets
     aggregate_off = np.array(aggregate_off)
     if len(aggregate_off) > 0:
@@ -201,7 +286,7 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
             fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
         ))
         interval_off.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
-
+    
     # Bar plot for the zdFF change
     if avg_on and avg_off:
         avg_on = np.array(avg_on)
