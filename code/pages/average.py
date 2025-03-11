@@ -1,7 +1,5 @@
 import os
 import sys
-import time
-import webbrowser
 import dash
 import dash_daq as daq
 import numpy as np
@@ -11,13 +9,15 @@ from dash.dependencies import Input, Output, State
 from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
 
-# Import visualization functions (from your separate file)
+# Import visualization functions
 from visualize import generate_average_plot, generate_plots
+# Import utility for condition assignments mapping (e.g., {'mouse1': 1, 'mouse2': 3, ...})
+from utils import load_assignments
 
 dash.register_page(__name__, path='/average')
 app = dash.get_app()
 
-# Determine the base path (works both for script and executable)
+# Determine the base path
 if getattr(sys, 'frozen', False):
     base_path = sys._MEIPASS
 else:
@@ -26,17 +26,13 @@ else:
 data_dir = os.path.join(base_path, "../../data")
 data_dir = os.path.abspath(data_dir)
 
-# Global container:
+# Global container for mouse data:
 mouse_data = {}
-
-# load component
-GroupSelection = load_react_component(app, "components", "GroupSelection.js")
 
 def load_raw_data():
     """Load raw merged data for all mice and store in mouse_data."""
     global mouse_data
     mouse_data = {}
-    # Detect available mouse folders
     mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
     for mouse in mouse_folders:
         photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
@@ -60,11 +56,19 @@ def load_raw_data():
 # Initial load of raw data
 load_raw_data()
 
+# Load condition assignments mapping: mouse id -> condition group
+condition_assignments = load_assignments()
+
+# Load the GroupSelection component
+GroupSelection = load_react_component(app, "components", "GroupSelection.js")
+
 layout = html.Div([
-    # Numeric inputs for the epoch window
+    # Include the group selection dropdown (MultiSelect)
     html.Div([
-        GroupSelection(id='group-selection', value=1)
+        GroupSelection(id='group-selection', value=[])  # Initially, no groups selected
     ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
+    
+    # Numeric inputs for the epoch window
     html.Div([
         html.Label("Seconds Before Event:"),
         dcc.Input(
@@ -83,23 +87,47 @@ layout = html.Div([
             style={'margin-left': '10px'}
         )
     ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
+    
     html.Div(id='tab-content'),
 ])
 
 @callback(
     Output('tab-content', 'children'),
     [Input('seconds-before', 'value'),
-     Input('seconds-after', 'value')]
+     Input('seconds-after', 'value'),
+     Input('group-selection', 'value')]
 )
+def update_graph(seconds_before, seconds_after, selected_groups):
+    # If no groups are selected, default to include all groups (1, 2, 3)
+    if not selected_groups:
+        selected_groups = [1, 2, 3]
+    
+    # Reload condition assignments (to ensure they are up to date)
+    assignments = load_assignments()
 
-def update_graph(seconds_before, seconds_after):
     acc_on_all = []
     acc_off_all = []
     adn_on_all = []
     adn_off_all = []
     fps = None
     
+    # Debug: print selected groups
+    print("Selected groups:", selected_groups)
+    
+    # Process each mouse only if its assigned condition group is in the selected groups.
     for mouse, merged in mouse_data.items():
+        mouse_group = assignments.get(mouse)
+        try:
+            # Convert to integer for consistency if needed
+            mouse_group = int(mouse_group)
+        except Exception as e:
+            print(f"Warning: unable to convert mouse group for {mouse}: {mouse_group}")
+        
+        print(f"Mouse: {mouse}, Group: {mouse_group}")
+        
+        if mouse_group not in selected_groups:
+            continue  # Skip this mouse
+        
         intervals = merged.get_freezing_intervals()
         if fps is None:
             fps = merged.fps
@@ -117,7 +145,14 @@ def update_graph(seconds_before, seconds_after):
         for epoch in adn_epochs_off:
             adn_off_all.append(epoch[2])
     
-    # Build four average figures: ACC Onset, ACC Offset, ADN Onset, ADN Offset
+    # Debug: print the aggregated data counts
+    print("Aggregated counts:", len(acc_on_all), len(acc_off_all), len(adn_on_all), len(adn_off_all))
+    
+    # If no data was collected, return a message.
+    if fps is None or (not acc_on_all and not acc_off_all and not adn_on_all and not adn_off_all):
+        return html.Div("No data available for the selected condition groups.")
+    
+    # Generate the average plots
     acc_on_fig, acc_off_fig = generate_average_plot("ACC", acc_on_all, acc_off_all, seconds_before, seconds_after, fps)
     adn_on_fig, adn_off_fig = generate_average_plot("ADN", adn_on_all, adn_off_all, seconds_before, seconds_after, fps)
     
@@ -130,8 +165,6 @@ def update_graph(seconds_before, seconds_after):
             dcc.Graph(id='accavgoff', figure=acc_off_fig),
             dcc.Graph(id='adnavgoff', figure=adn_off_fig)
         ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'}),
-        
-        # Color picker for the average tab
         html.Div([
             html.H3("Averaged Data Color Settings"),
             dcc.Dropdown(
