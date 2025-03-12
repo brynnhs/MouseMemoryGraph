@@ -247,7 +247,7 @@ class MergeDatasets():
 
         return merged
     
-    def get_epoch_data(self, intervals, column, before=2, after=2, type='on'):
+    def get_epoch_data(self, intervals, column, before=2, after=2, type='on', filter=True):
         """
         Get photometry data for each epoch defined by a window around an event.
         
@@ -279,27 +279,36 @@ class MergeDatasets():
             print("Type not recognized")
 
         diff = np.insert(diff, 0, 0)
-        #intervals = [intervals[i] for i in range(len(intervals)) if diff[i] > 2 * frames]
 
-        if type == 'on':
-            epochs = [((int(on-frames_before), int(on+frames_after)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames_after]
-        elif type == 'off':
-            epochs = [((int(off-frames_before), int(off+frames_after)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames_before]
+        if filter:
+            if type == 'on':
+                epochs = [((int(on-frames_before), int(on+frames_after)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames_after]
+            elif type == 'off':
+                epochs = [((int(off-frames_before), int(off+frames_after)), intervals[i]) for i,(on, off) in enumerate(intervals)  if off - on > frames_before]
+            else:
+                # throw an error
+                print("Type not recognized")
         else:
-            # throw an error
-            print("Type not recognized")
+            if type == 'on':
+                epochs = [((int(on-frames_before), int(on+frames_after)), intervals[i]) for i,(on, off) in enumerate(intervals)]
+            elif type == 'off':
+                epochs = [((int(off-frames_before), int(off+frames_after)), intervals[i]) for i,(on, off) in enumerate(intervals)]
+            else:
+                # throw an error
+                print("Type not recognized")
+
         #filter out epochs that are out of bounds
         epochs = [((beg, end), inter) for (beg, end), inter in epochs if beg > 0 and end < max]
         epochs = [[(beg, end), inter, self.df[column+'.zdFF'][beg:end]] for (beg, end), inter in epochs]
         
         return epochs
     
-    def get_epoch_average(self, intervals, column, before=2, after=2, type='on'):
+    def get_epoch_average(self, intervals, column, before=2, after=2, type='on', filter=True):
         """
         Get the average signal before and after each event.
         """
 
-        epochs = self.get_epoch_data(intervals, column, before, after, type)
+        epochs = self.get_epoch_data(intervals, column, before, after, type, filter)
 
         epoch_avg = []
         for epoch in epochs:
