@@ -77,7 +77,7 @@ GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
 app.layout = html.Div([
     # Header image
     html.Div([
-        html.Img(src='/assets/footer.png', style={'width': '100%', 'height': 'auto'})
+        html.Img(src='/assets/header.png', style={'width': '100%', 'height': 'auto'})
     ], style={'text-align': 'center', 'margin-bottom': '10px'}),
     
     # Mouse selection dropdown (global navigation)
