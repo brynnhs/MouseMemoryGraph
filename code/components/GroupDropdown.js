@@ -5,13 +5,13 @@ const pastelColors = [
 ];
 
 const initialOptions = [
-    { key: 1, text: 'Recent', value: 1, color: pastelColors[0] },
-    { key: 2, text: 'Remote', value: 2, color: pastelColors[1] },
-    { key: 3, text: 'Control', value: 3, color: pastelColors[2] },
+    { key: 'Recent', text: 'Recent', value: 'Recent', color: pastelColors[0] },
+    { key: 'Remote', text: 'Remote', value: 'Remote', color: pastelColors[1] },
+    { key: 'Control', text: 'Control', value: 'Control', color: pastelColors[2] },
 ];
 
 export default function GroupDropdown(props) {
-    const { id, value, setProps } = props;
+    const { id, value, setProps, setOptions: setDashOptions } = props;
     const [options, setOptions] = React.useState(initialOptions);
     const [newGroupName, setNewGroupName] = React.useState('');
     const [showTextbox, setShowTextbox] = React.useState(false);
@@ -32,16 +32,18 @@ export default function GroupDropdown(props) {
 
     function handleAddNewGroup() {
         const newGroup = {
-            key: options.length + 1,
+            key: newGroupName,
             text: newGroupName,
-            value: options.length + 1,
+            value: newGroupName,
             color: pastelColors[options.length % pastelColors.length] // Assign color iteratively
         };
-        setOptions([...options, newGroup]);
+        const newOptions = [...options, newGroup];
+        setOptions(newOptions);
         setNewGroupName('');
         setShowTextbox(false);
         setProps({ value: newGroup.value });
         setDropdownOpen(false);
+        setDashOptions(newOptions); // Update Dash options
     }
 
     return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } }, [
@@ -121,5 +123,5 @@ export default function GroupDropdown(props) {
 }
 
 GroupDropdown.defaultProps = {
-    value: 1
+    value: 'Recent'
 };
