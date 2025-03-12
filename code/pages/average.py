@@ -29,6 +29,12 @@ data_dir = os.path.abspath(data_dir)
 # Global container for mouse data:
 mouse_data = {}
 
+color_map = {
+    'Recent': '#FFB3BA',
+    'Remote': '#FFDFBA',
+    'Control': '#FFFFBA'
+}
+
 def load_raw_data():
     """Load raw merged data for all mice and store in mouse_data."""
     global mouse_data

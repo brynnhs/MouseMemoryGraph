@@ -15,10 +15,6 @@ from dash_local_react_components import load_react_component
 from visualize import generate_average_plot, generate_plots
 # Import layout and utils
 from layout import create_layout
-from utils import load_assignments, save_assignments
-
-# Global container for mouse condition assignments
-mouse_assignments = load_assignments()
 
 def get_color_hex(color_value):
     """
@@ -100,11 +96,6 @@ app.layout = html.Div([
     # Page container for multi-page routing
     dash.page_container,
 
-    # Global GroupDropdown appears on every page
-    html.Div([
-        GroupDropdown(id='group-dropdown', value=1)
-    ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
-
     # Footer image
     html.Div([
         html.Img(src='assets/footer.png', style={'width': '100%', 'height': 'auto'})
@@ -121,32 +112,6 @@ app.layout = html.Div([
 )
 def update_page(value):
     return value
-
-# Combined callback for handling both dropdown changes and URL updates.
-@app.callback(
-    Output('group-dropdown', 'value'),
-    [Input('group-dropdown', 'value'),
-     Input('url', 'pathname')],
-    [State('group-dropdown', 'value')]
-)
-def manage_mouse_assignment(new_value, pathname, current_value):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        # On initial load, use the stored assignment.
-        mouse_id = pathname.split('/')[-1]
-        return mouse_assignments.get(mouse_id, 'default_group')
-    triggered_id = ctx.triggered[0]['prop_id']
-    if triggered_id.startswith('group-dropdown'):
-        # User changed the dropdown value.
-        mouse_id = pathname.split('/')[-1]
-        mouse_assignments[mouse_id] = new_value
-        save_assignments(mouse_assignments)
-        return new_value
-    elif triggered_id.startswith('url'):
-        # URL changed; load the saved assignment.
-        mouse_id = pathname.split('/')[-1]
-        return mouse_assignments.get(mouse_id, 'default_group')
-    return current_value
 
 app.index_string = '''
 <!DOCTYPE html>

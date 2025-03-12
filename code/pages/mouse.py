@@ -15,7 +15,13 @@ from dash_local_react_components import load_react_component
 # Import visualization functions (from your separate file)
 from visualize import generate_plots
 
+from utils import load_assignments, save_assignments
+
+# Global container for mouse condition assignments
+mouse_assignments = load_assignments()
+
 dash.register_page(__name__, path_template='/mouse/<id>')
+app = dash.get_app()
 
 # Determine the base path (works both for script and executable)
 if getattr(sys, 'frozen', False):
@@ -25,6 +31,10 @@ else:
 
 data_dir = os.path.join(base_path, "../../data")
 data_dir = os.path.abspath(data_dir)
+
+
+# Load the GroupDropdown React component globally
+GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
 
 # Global container:
 mouse_data = {}
@@ -61,6 +71,10 @@ def layout(id=None, **other_unknown_query_strings):
     mouse = id
     return html.Div([
         dcc.Location(id='url'),
+            # Global GroupDropdown appears on every page
+        html.Div([
+            GroupDropdown(id='group-dropdown', value=1)
+        ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
         html.H2(f'Mouse {mouse}'),
             html.Div([
         html.Label("Seconds Before Event:"),
@@ -205,3 +219,29 @@ def update_graph(seconds_before, seconds_after, pathname):
     ], style={'display': 'flex', 'flex-direction': 'column'})
     
     return content
+
+# Combined callback for handling both dropdown changes and URL updates.
+@app.callback(
+    Output('group-dropdown', 'value'),
+    [Input('group-dropdown', 'value'),
+     Input('url', 'pathname')],
+    [State('group-dropdown', 'value')]
+)
+def manage_mouse_assignment(new_value, pathname, current_value):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        # On initial load, use the stored assignment.
+        mouse_id = pathname.split('/')[-1]
+        return mouse_assignments.get(mouse_id, 'default_group')
+    triggered_id = ctx.triggered[0]['prop_id']
+    if triggered_id.startswith('group-dropdown'):
+        # User changed the dropdown value.
+        mouse_id = pathname.split('/')[-1]
+        mouse_assignments[mouse_id] = new_value
+        save_assignments(mouse_assignments)
+        return new_value
+    elif triggered_id.startswith('url'):
+        # URL changed; load the saved assignment.
+        mouse_id = pathname.split('/')[-1]
+        return mouse_assignments.get(mouse_id, 'default_group')
+    return current_value

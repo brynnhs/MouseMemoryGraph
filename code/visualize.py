@@ -1,6 +1,12 @@
 import plotly.graph_objs as go
 import numpy as np
 
+color_map = {
+    'Recent': '#FFB3BA',
+    'Remote': '#FFDFBA',
+    'Control': '#FFFFBA'
+}
+
 def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
     """
     Generate average plots for ON and OFF epochs.
@@ -31,7 +37,8 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
             overall_on.extend(group_epochs)
             fig_on.add_trace(go.Scatter(
                 x=x, y=mean_on, mode='lines',
-                name=f'Group {group}'
+                name=f'Group {group}',
+                line=dict(color=color_map[group])
             ))
 
         # Now add the overall average trace (if any epochs were collected)
@@ -108,7 +115,8 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
             overall_off.extend(group_epochs)
             fig_off.add_trace(go.Scatter(
                 x=x, y=mean_off, mode='lines',
-                name=f'Group {group}'
+                name=f'Group {group}',
+                line=dict(color=color_map[group])
             ))
         if overall_off:
             arr_overall = np.array(overall_off)
