@@ -98,9 +98,10 @@ layout = html.Div([
      Input('group-selection', 'value')]
 )
 def update_graph(seconds_before, seconds_after, selected_groups):
+    print(selected_groups)
     # Default to all groups if none selected.
     if not selected_groups:
-        selected_groups = [1, 2, 3]
+        selected_groups = []
 
     # Reload condition assignments mapping: mouse id -> group
     assignments = load_assignments()
@@ -115,10 +116,6 @@ def update_graph(seconds_before, seconds_after, selected_groups):
     # Process each mouse if its condition is selected.
     for mouse, merged in mouse_data.items():
         mouse_group = assignments.get(mouse)
-        try:
-            mouse_group = int(mouse_group)
-        except:
-            continue  # Skip if conversion fails.
         if mouse_group not in selected_groups:
             continue
 

@@ -10,17 +10,23 @@ const initialOptions = [
     { key: 'Control', text: 'Control', value: 'Control', color: pastelColors[2] },
 ];
 
-export default function MultiSelectDropdown() {
-    const [options, setOptions] = React.useState(initialOptions);
-    const [selectedValues, setSelectedValues] = React.useState([]);
+export default function MultiSelectDropdown(props) {
+    const { id, value, setProps } = props;
+    // Initialize selectedValues from the passed value (default to empty array)
+    const [selectedValues, setSelectedValues] = React.useState(value || []);
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
 
-    function toggleOption(value) {
-        setSelectedValues(prevSelected => 
-            prevSelected.includes(value) 
-                ? prevSelected.filter(v => v !== value) 
-                : [...prevSelected, value]
-        );
+    function toggleOption(val) {
+        let newSelected;
+        if (selectedValues.includes(val)) {
+            newSelected = selectedValues.filter(v => v !== val);
+        } else {
+            newSelected = [...selectedValues, val];
+        }
+        setSelectedValues(newSelected);
+        if (setProps) {
+            setProps({ value: newSelected });
+        }
     }
 
     return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } }, [
@@ -29,37 +35,55 @@ export default function MultiSelectDropdown() {
             style: { padding: '10px', borderRadius: '5px', border: '1px solid #ccc', cursor: 'pointer' }
         }, dropdownOpen ? 'Select Options' : 'Selected Groups'),
         dropdownOpen && React.createElement('div', {
-            style: { position: 'absolute', top: '100%', left: 0, right: 0, border: '1px solid #ccc', borderRadius: '5px', backgroundColor: 'white', zIndex: 1, minWidth: 'max-content' }
-        }, [
-            ...options.map(option => 
-                React.createElement('div', {
-                    key: option.key,
-                    onClick: () => toggleOption(option.value),
-                    style: { padding: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
-                }, [
-                    React.createElement('span', {
-                        style: {
-                            display: 'inline-block',
-                            width: '10px',
-                            height: '10px',
-                            backgroundColor: option.color,
-                            borderRadius: '50%',
-                            marginRight: '5px'
-                        }
-                    }),
-                    React.createElement('span', {
-                        style: {
-                            opacity: selectedValues.includes(option.value) ? 1 : 0.5
-                        }
-                    }, option.text),
-                    React.createElement('input', {
-                        type: 'checkbox',
-                        checked: selectedValues.includes(option.value),
-                        readOnly: true,
-                        style: { marginLeft: 'auto', opacity: selectedValues.includes(option.value) ? 1 : 0.5 }
-                    })
-                ])
-            )
-        ])
+            style: { 
+                position: 'absolute', 
+                top: '100%', 
+                left: 0, 
+                right: 0, 
+                border: '1px solid #ccc', 
+                borderRadius: '5px', 
+                backgroundColor: 'white', 
+                zIndex: 1, 
+                minWidth: 'max-content' 
+            }
+        }, initialOptions.map(option => 
+            React.createElement('div', {
+                key: option.key,
+                onClick: () => toggleOption(option.value),
+                style: { 
+                    padding: '10px', 
+                    cursor: 'pointer', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between' 
+                }
+            }, [
+                React.createElement('span', {
+                    style: {
+                        display: 'inline-block',
+                        width: '10px',
+                        height: '10px',
+                        backgroundColor: option.color,
+                        borderRadius: '50%',
+                        marginRight: '5px'
+                    }
+                }),
+                React.createElement('span', {
+                    style: {
+                        opacity: selectedValues.includes(option.value) ? 1 : 0.5
+                    }
+                }, option.text),
+                React.createElement('input', {
+                    type: 'checkbox',
+                    checked: selectedValues.includes(option.value),
+                    readOnly: true,
+                    style: { marginLeft: 'auto', opacity: selectedValues.includes(option.value) ? 1 : 0.5 }
+                })
+            ])
+        ))
     ]);
 }
+
+MultiSelectDropdown.defaultProps = {
+    value: []
+};
