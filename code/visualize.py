@@ -25,12 +25,15 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
                 continue
             arr = np.array(group_epochs)  # shape: (n_epochs, len(x))
             mean_on = np.mean(arr, axis=0)
+            std_on = np.std(arr, axis=0)
+            
             # Collect data for overall average
             overall_on.extend(group_epochs)
             fig_on.add_trace(go.Scatter(
                 x=x, y=mean_on, mode='lines',
-                name=f'Group {group} Average'
+                name=f'Group {group}'
             ))
+
         # Now add the overall average trace (if any epochs were collected)
         if overall_on:
             arr_overall = np.array(overall_on)
@@ -39,7 +42,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
             fig_on.add_trace(go.Scatter(
                 x=x, y=mean_overall, mode='lines',
                 name='Overall Average',
-                line=dict(width=3, dash='dash')
+                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)')
             ))
             fig_on.add_trace(go.Scatter(
                 x=x, y=mean_overall + std_overall,
@@ -52,7 +55,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
                 x=x, y=mean_overall - std_overall,
                 mode='lines',
                 fill='tonexty',
-                fillcolor='rgba(0,0,255,0.1)',
+                fillcolor='rgba(128,128,128,0.1)',
                 line=dict(color='rgba(0,0,0,0)'),
                 showlegend=False,
                 hoverinfo="skip"
@@ -105,7 +108,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
             overall_off.extend(group_epochs)
             fig_off.add_trace(go.Scatter(
                 x=x, y=mean_off, mode='lines',
-                name=f'Group {group} Average'
+                name=f'Group {group}'
             ))
         if overall_off:
             arr_overall = np.array(overall_off)
@@ -114,7 +117,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
             fig_off.add_trace(go.Scatter(
                 x=x, y=mean_overall, mode='lines',
                 name='Overall Average',
-                line=dict(width=3, dash='dash')
+                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)'),
             ))
             fig_off.add_trace(go.Scatter(
                 x=x, y=mean_overall + std_overall,
@@ -127,7 +130,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
                 x=x, y=mean_overall - std_overall,
                 mode='lines',
                 fill='tonexty',
-                fillcolor='rgba(0,0,255,0.1)',
+                fillcolor='rgba(128,128,128,0.1)',
                 line=dict(color='rgba(0,0,0,0)'),
                 showlegend=False,
                 hoverinfo="skip"
