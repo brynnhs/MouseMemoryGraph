@@ -167,13 +167,15 @@ def update_graph(seconds_before, seconds_after, selected_groups, on):
     
     content = html.Div([
         html.Div([
+        html.Div([
             dcc.Graph(id='accavgon', figure=acc_on_fig),
             dcc.Graph(id='adnavgon', figure=adn_on_fig)
-        ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'}),
+        ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top', }),
         html.Div([
             dcc.Graph(id='accavgoff', figure=acc_off_fig),
             dcc.Graph(id='adnavgoff', figure=adn_off_fig)
-        ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top', 'background-color': 'white', 'border-radius': '10px',}),
+        ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top',}),
+        ], style={'background-color': 'white', 'border-radius': '10px'}),
         html.Div([
             html.H3("Averaged Data Color Settings"),
             dcc.Dropdown(
