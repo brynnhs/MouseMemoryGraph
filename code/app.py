@@ -84,14 +84,27 @@ app.layout = html.Div([
     html.Div([
         dcc.Dropdown(
             id='mouse-dropdown',
+            clearable=False,
+            searchable=False,
             options=(
-                [{"label": dcc.Link(children="Averaged Data", href="/average"), "value": "/average"}] +
-                [{"label": dcc.Link(children=f"Mouse {mouse}", href=f'/mouse/{mouse}'), "value": f'/mouse/{mouse}'} for mouse in mouse_data]
+                [{"label": dcc.Link(children=[
+                    html.Span([html.Img(src='/assets/home.png', style={'height': '20px', 'margin-right': '5px', 'vertical-align': 'middle'})]),
+                    "Homepage"
+                    ], href="/"), "value": "/"}] +
+                [{"label": dcc.Link(children=[
+                    html.Span([html.Img(src='/assets/average.png', style={'height': '20px', 'margin-right': '5px', 'vertical-align': 'middle'})]),
+                    "Grouped Data"
+                    ], href="/average"), "value": "/average"}] +
+                [{"label": dcc.Link(children=[
+                    html.Span([html.Img(src='/assets/logo.png', style={'height': '20px', 'margin-right': '5px', 'vertical-align': 'middle'})]),
+                    "Mouse " + mouse
+                    ]
+                , href=f'/mouse/{mouse}'), "value": f'/mouse/{mouse}'} for mouse in mouse_data]
             ) if mouse_data else [{"label": "No data available", "value": "None"}],
-            value="Home" if mouse_data else "None",
+            value="/" if mouse_data else "None",  # Set default value to homepage route
             style={'width': '300px', 'margin': '0 auto'}
         )
-    ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
+    ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px', 'margin-top': '20px'}),
 
     # Page container for multi-page routing
     dash.page_container,
