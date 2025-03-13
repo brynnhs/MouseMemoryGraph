@@ -5,5 +5,4 @@
 *.pyc
 ```
 # ignore the assignments.json file
-assignments.json
-```
+*.json
