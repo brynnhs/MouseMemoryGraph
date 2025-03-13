@@ -7,7 +7,7 @@ color_map = {
     'Control': '#FFFFBA'
 }
 
-def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
+def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before, after, fps):
     """
     Generate average plots for ON and OFF epochs.
     
@@ -98,7 +98,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
         xaxis_title='Time (s)',
         yaxis_title='Signal',
         paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
+        plot_bgcolor='rgba(10, 10, 10, 0.02)'
     )
     fig_on.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
     
@@ -173,11 +173,63 @@ def generate_average_plot(sensor, epochs_on, epochs_off, before, after, fps):
         xaxis_title='Time (s)',
         yaxis_title='Signal',
         paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
+        plot_bgcolor='rgba(10, 10, 10, 0.02)'
     )
     fig_off.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+
+    # average change plot
+    avg_change_on = go.Figure(layout_yaxis_range=[-2, 2])
+
+    for group, group_avg in avg_on.items():
+        avg_change_on.add_trace(go.Scatter(
+            x=[group] * len(group_avg),
+            y=group_avg,
+            mode='markers',
+            marker_color=color_map[group])
+        )
+        avg_change_on.add_trace(go.Bar(
+            x=[group],
+            y=[np.mean(group_avg)],
+            marker_color=[color_map[group]],
+            opacity=0.3,
+            error_y=dict(type='data', array=[np.std(group_avg)], visible=True)
+        ))
+    avg_change_on.update_layout(
+        title=f'zdFF Change onset', 
+        xaxis_title='Event', 
+        yaxis_title='zdFF',
+        paper_bgcolor='rgba(0, 0, 0, 0)',
+        plot_bgcolor='rgba(10, 10, 10, 0.02)',
+        bargap=0.8,
+        showlegend=False
+    )
+
+    avg_change_off = go.Figure(layout_yaxis_range=[-2, 2])
+    for group, group_avg in avg_off.items():
+        avg_change_off.add_trace(go.Scatter(
+            x=[group] * len(group_avg),
+            y=group_avg,
+            mode='markers',
+            marker_color=color_map[group])
+        )
+        avg_change_off.add_trace(go.Bar(
+            x=[group],
+            y=[np.mean(group_avg)],
+            marker_color=[color_map[group]],
+            opacity=0.3,
+            error_y=dict(type='data', array=[np.std(group_avg)], visible=True)
+        ))
+    avg_change_off.update_layout(
+        title=f'zdFF Change offset', 
+        xaxis_title='Event', 
+        yaxis_title='zdFF',
+        paper_bgcolor='rgba(0, 0, 0, 0)',
+        plot_bgcolor='rgba(10, 10, 10, 0.02)',
+        bargap=0.8,
+        showlegend=False
+    )
     
-    return fig_on, fig_off
+    return fig_on, fig_off, avg_change_on, avg_change_off
 
 def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, name='ACC'):
     """
@@ -319,6 +371,7 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
             y=[np.mean(avg_on[:, 2]), np.mean(avg_off[:, 2])],
             marker_color=['blue', 'lightblue'],
             opacity=0.3,
+            error_y=dict(type='data', array=[np.std(avg_on[:, 2]), np.std(avg_off[:, 2])], visible=True)
         ))
         avg_change.update_layout(title=f'{name} zdFF Change', xaxis_title='Event', yaxis_title='zdFF')
     
@@ -342,7 +395,7 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
     )
     avg_change.update_layout(
         paper_bgcolor='rgba(0, 0, 0, 0)',
-        plot_bgcolor='rgba(0, 0, 0, 0)',
+        plot_bgcolor='rgba(10, 10, 10, 0.02)',
         bargap=0.8,
         showlegend=False
     )

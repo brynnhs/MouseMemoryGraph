@@ -71,7 +71,7 @@ GroupSelection = load_react_component(app, "components", "GroupSelection.js")
 layout = html.Div([
     # Include the group selection dropdown (MultiSelect)
     html.Div([
-        GroupSelection(id='group-selection', value=[])  # Initially, no groups selected
+        GroupSelection(id='group-selection', value=['Recent', 'Remote'])  # Initially, no groups selected
     ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
     
     # Numeric inputs for the epoch window
@@ -135,6 +135,12 @@ def update_graph(seconds_before, seconds_after, selected_groups, on):
     acc_off_dict = {}
     adn_on_dict = {}
     adn_off_dict = {}
+
+    acc_avg_on_dict = {}
+    acc_avg_off_dict = {}
+    adn_avg_on_dict = {}
+    adn_avg_off_dict = {}
+
     fps = None
 
     # Process each mouse if its condition is selected.
@@ -150,31 +156,51 @@ def update_graph(seconds_before, seconds_after, selected_groups, on):
         acc_epochs_off = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on)
         adn_epochs_on = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, type='on', filter=on)
         adn_epochs_off = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on)
+
+        acc_avg_on = merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on)
+        adn_avg_on = merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on)
+        acc_avg_off = merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on)
+        adn_avg_off = merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on)
         
         # Append epochs to the proper group in the dictionaries.
         acc_on_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in acc_epochs_on])
         acc_off_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in acc_epochs_off])
         adn_on_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in adn_epochs_on])
         adn_off_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in adn_epochs_off])
+
+        acc_avg_on_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in acc_avg_on])
+        adn_avg_on_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in adn_avg_on])
+        acc_avg_off_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in acc_avg_off])
+        adn_avg_off_dict.setdefault(mouse_group, []).extend([epoch[2] for epoch in adn_avg_off])
     
     # If no data was collected, show a message.
     if fps is None:
         return html.Div("No data available for the selected condition groups.")
     
     # Generate the average plots using dictionaries.
-    acc_on_fig, acc_off_fig = generate_average_plot("ACC", acc_on_dict, acc_off_dict, seconds_before, seconds_after, fps)
-    adn_on_fig, adn_off_fig = generate_average_plot("ADN", adn_on_dict, adn_off_dict, seconds_before, seconds_after, fps)
+    acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps)
+    adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps)
     
     content = html.Div([
         html.Div([
-        html.Div([
-            dcc.Graph(id='accavgon', figure=acc_on_fig),
-            dcc.Graph(id='adnavgon', figure=adn_on_fig)
-        ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top', }),
-        html.Div([
-            dcc.Graph(id='accavgoff', figure=acc_off_fig),
-            dcc.Graph(id='adnavgoff', figure=adn_off_fig)
-        ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top',}),
+            html.Div([
+                dcc.Graph(id='accavgon', figure=acc_on_fig),
+                dcc.Graph(id='adnavgon', figure=adn_on_fig),
+
+            ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top', }),
+            html.Div([
+                dcc.Graph(id='accavgoff', figure=acc_off_fig),
+                dcc.Graph(id='adnavgoff', figure=adn_off_fig)
+            ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top',}),
+            html.Div([
+                dcc.Graph(id='accon_change', figure=acc_on_change),
+                dcc.Graph(id='adnon_change', figure=adn_on_change),
+                
+            ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top', }),
+            html.Div([
+                dcc.Graph(id='accoff_change', figure=acc_off_change),
+                dcc.Graph(id='adnoff_change', figure=adn_off_change)
+            ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top',}),
         ], style={'background-color': 'white', 'border-radius': '10px'}),
         html.Div([
             html.H3("Averaged Data Color Settings"),
