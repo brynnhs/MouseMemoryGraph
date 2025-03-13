@@ -1,0 +1,9 @@
+# ignore .csv files
+*.csv
+```
+# ignore .pyc files
+*.pyc
+```
+# ignore the assignments.json file
+assignments.json
+```
