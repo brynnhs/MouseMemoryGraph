@@ -50,7 +50,6 @@ layout = html.Div([
             'backgroundColor': 'white'
         }
     ),
-    dcc.Store(id='selected-folder'),
     html.Div([
         html.H1("Welcome to the Mouse Memory Graph App"),
         html.P("This is the homepage of the app. Use the dropdown menu to navigate to different mouse data pages."),

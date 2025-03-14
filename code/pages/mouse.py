@@ -29,43 +29,30 @@ if getattr(sys, 'frozen', False):
 else:
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-data_dir = os.path.join(base_path, "../../data")
-data_dir = os.path.abspath(data_dir)
-
 
 # Load the GroupDropdown React component globally
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
 
-# Global container:
-mouse_data = {}
-
-def load_raw_data():
+def load_raw_data(data_dir, mouse):
     """Load raw merged data for all mice and store in mouse_data."""
-    global mouse_data
     mouse_data = {}
-    # Detect available mouse folders
-    mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
-    for mouse in mouse_folders:
-        photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
-        behavior_path = os.path.join(data_dir, mouse, "Behavior.csv")
-        if os.path.exists(photometry_path) and os.path.exists(behavior_path):
-            photometry = PhotometryDataset(
-                photometry_path,
-                column_map={
-                    "channel1_410": "ACC.control",
-                    "channel1_470": "ACC.signal",
-                    "channel2_410": "ADN.control",
-                    "channel2_470": "ADN.signal"
-                }
-            )
-            behavior = BehaviorDataset(behavior_path)
-            photometry.normalize_signal()
-            merged = MergeDatasets(photometry, behavior)
-            mouse_data[mouse] = merged
+    photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
+    behavior_path = os.path.join(data_dir, mouse, "Behavior.csv")
+    if os.path.exists(photometry_path) and os.path.exists(behavior_path):
+        photometry = PhotometryDataset(
+            photometry_path,
+            column_map={
+                "channel1_410": "ACC.control",
+                "channel1_470": "ACC.signal",
+                "channel2_410": "ADN.control",
+                "channel2_470": "ADN.signal"
+            }
+        )
+        behavior = BehaviorDataset(behavior_path)
+        photometry.normalize_signal()
+        merged = MergeDatasets(photometry, behavior)
+        return merged.to_dict()
     print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
-
-# Initial load of raw data
-load_raw_data()
 
 def layout(id=None, **other_unknown_query_strings):
     mouse = id
@@ -117,20 +104,40 @@ def layout(id=None, **other_unknown_query_strings):
     ])
 
 @callback(
+    Output('mouse-data-store', 'data'),
+    [Input('mouse-data-store', 'data'), Input('url', 'pathname'), Input('selected-folder', 'data')]
+)
+def load_mouse_data(data, pathname, folder):
+    mouse = pathname.split('/')[-1]
+    if not data:
+        data = {}
+
+    if mouse in data.keys():
+        print('Found mouse data in store:', mouse)
+        return data
+    else:
+        print('load_mouse_data', pathname, folder)
+        
+        mouse_data = load_raw_data(folder, mouse)
+        data[mouse] = mouse_data
+        return data
+
+@callback(
     Output('mouse-content', 'children'),
-    [Input('seconds-before', 'value'),
+    [Input('mouse-data-store', 'data'),
+     Input('seconds-before', 'value'),
      Input('seconds-after', 'value'),
      Input('url', 'pathname'),
      Input('boolean-switch', 'on')],
 )
 
-def update_graph(seconds_before, seconds_after, pathname, on):
-    print('switch', on)
-    mouse = pathname.split('/')[-1]
-    if mouse not in mouse_data:
+def update_graph(mouse_data, seconds_before, seconds_after, pathname, on):
+    if not mouse_data:
             return "No data available."
-        
-    merged = mouse_data[mouse]
+    
+    mouse = pathname.split('/')[-1]
+    mouse_data = mouse_data[mouse]
+    merged = MergeDatasets.from_dict(mouse_data)
     mergeddataset = merged.df
     fps = merged.fps
     

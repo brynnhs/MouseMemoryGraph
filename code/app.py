@@ -3,18 +3,9 @@ import sys
 import time
 import webbrowser
 import dash
-import dash_daq as daq
-import numpy as np
-import pandas as pd
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
-from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
-
-# Import visualization functions (from your separate file)
-from visualize import generate_average_plot, generate_plots
-# Import layout and utils
-from layout import create_layout
 
 def get_color_hex(color_value):
     """
@@ -85,7 +76,9 @@ app.layout = html.Div([
     ], style={'text-align': 'center', 'margin-top': '10px'}),
 
     # Store component to persist state
-    dcc.Store(id='app-state', storage_type='session')
+    dcc.Store(id='app-state', storage_type='local'),
+    dcc.Store(id='selected-folder', storage_type='local'),
+    dcc.Store(id='mouse-data-store', storage_type='local')
 ])
 
 app.index_string = '''
