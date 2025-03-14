@@ -3,18 +3,9 @@ import sys
 import time
 import webbrowser
 import dash
-import dash_daq as daq
-import numpy as np
-import pandas as pd
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
-from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
-
-# Import visualization functions (from your separate file)
-from visualize import generate_average_plot, generate_plots
-# Import layout and utils
-from layout import create_layout
 
 def get_color_hex(color_value):
     """
@@ -35,39 +26,18 @@ if getattr(sys, 'frozen', False):
 else:
     base_path = os.path.dirname(os.path.abspath(__file__))
 
-data_dir = os.path.join(base_path, "../data")
-data_dir = os.path.abspath(data_dir)
 
-# Global container for mouse data:
-mouse_data = {}
-
-def load_raw_data():
+def load_raw_data(data_dir):
     """Load raw merged data for all mice and store in mouse_data."""
-    global mouse_data
     mouse_data = {}
     # Detect available mouse folders
     mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
     for mouse in mouse_folders:
-        photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
-        behavior_path = os.path.join(data_dir, mouse, "Behavior.csv")
-        if os.path.exists(photometry_path) and os.path.exists(behavior_path):
-            photometry = PhotometryDataset(
-                photometry_path,
-                column_map={
-                    "channel1_410": "ACC.control",
-                    "channel1_470": "ACC.signal",
-                    "channel2_410": "ADN.control",
-                    "channel2_470": "ADN.signal"
-                }
-            )
-            behavior = BehaviorDataset(behavior_path)
-            photometry.normalize_signal()
-            merged = MergeDatasets(photometry, behavior)
-            mouse_data[mouse] = merged
+            mouse_data[mouse] = []
     print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
-# Initial load of raw data
-load_raw_data()
+    return mouse_data
+
 
 app = dash.Dash(__name__, use_pages=True, assets_folder='../assets')
 
@@ -75,6 +45,7 @@ app = dash.Dash(__name__, use_pages=True, assets_folder='../assets')
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
 
 app.layout = html.Div([
+    dcc.Location(id='url', refresh=False),
     # Header image
     html.Div([
         html.Img(src='/assets/header.png', style={'width': '100%', 'height': 'auto'})
@@ -84,14 +55,17 @@ app.layout = html.Div([
     html.Div([
         dcc.Dropdown(
             id='mouse-dropdown',
+            clearable=False,
+            searchable=False,
             options=(
-                [{"label": dcc.Link(children="Averaged Data", href="/average"), "value": "/average"}] +
-                [{"label": dcc.Link(children=f"Mouse {mouse}", href=f'/mouse/{mouse}'), "value": f'/mouse/{mouse}'} for mouse in mouse_data]
-            ) if mouse_data else [{"label": "No data available", "value": "None"}],
-            value="Home" if mouse_data else "None",
+                [{"label": dcc.Link(children=[
+                    html.Span([html.Img(src='/assets/home.png', style={'height': '20px', 'margin-right': '5px', 'vertical-align': 'middle'})]),
+                    "Homepage"
+                    ], href="/"), "value": "/"}]),
+            value="/", 
             style={'width': '300px', 'margin': '0 auto'}
         )
-    ], style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px'}),
+    ], id='dropdown', style={'width': '100%', 'text-align': 'center', 'margin-bottom': '20px', 'margin-top': '20px'}),
 
     # Page container for multi-page routing
     dash.page_container,
@@ -102,16 +76,10 @@ app.layout = html.Div([
     ], style={'text-align': 'center', 'margin-top': '10px'}),
 
     # Store component to persist state
-    dcc.Store(id='app-state', storage_type='session')
+    dcc.Store(id='app-state', storage_type='local'),
+    dcc.Store(id='selected-folder', storage_type='local'),
+    dcc.Store(id='mouse-data-store', storage_type='local')
 ])
-
-# Example callback for another page element (if needed)
-@app.callback(
-    Output('page-dropdown', 'value'),
-    [Input('page-dropdown', 'value')]
-)
-def update_page(value):
-    return value
 
 app.index_string = '''
 <!DOCTYPE html>
@@ -145,6 +113,58 @@ app.index_string = '''
     </body>
 </html>
 '''
+
+@app.callback(
+    Output('app-state', 'data'),
+    Input('submit-path', 'n_clicks'),
+    Input('app-state', 'data'),
+    State('input-path', 'value')
+)
+def update_app_state(n_clicks, data, input_value):
+    print(data)
+    # if already data in the app state, return it
+    if n_clicks > 0 and input_value:
+        mouse_data = load_raw_data(input_value)
+        return {'mouse_data': mouse_data}
+    elif data:
+        return data
+    return {}
+
+@app.callback(
+    Output('mouse-dropdown', 'options'),
+    Input('app-state', 'data')
+)
+def update_dropdown_options(data):
+    if data:
+        mouse_data = data.get('mouse_data', {})
+        options = (
+            [{"label": dcc.Link(children=[
+                html.Span([html.Img(src='/assets/home.png', style={'height': '20px', 'margin-right': '5px', 'vertical-align': 'middle'})]),
+                "Homepage"
+                ], href="/"), "value": "/"}] +
+            [{"label": dcc.Link(children=[
+                html.Span([html.Img(src='/assets/average.png', style={'height': '20px', 'margin-right': '5px', 'vertical-align': 'middle'})]),
+                "Grouped Data"
+                ], href="/average"), "value": "/average"}] +
+            [{"label": dcc.Link(children=[
+                html.Span([html.Img(src='/assets/logo.png', style={'height': '20px', 'margin-right': '5px', 'vertical-align': 'middle'})]),
+                "Mouse " + mouse
+                ]
+            , href=f'/mouse/{mouse}'), "value": f'/mouse/{mouse}'} for mouse in mouse_data]
+        ) if mouse_data else [{"label": "No data available", "value": "None"}]
+        return options
+    return [{"label": "No data available", "value": "None"}]
+
+@app.callback(
+    Output('mouse-dropdown', 'value'),
+    Input('url', 'pathname'),
+    State('mouse-dropdown', 'options')
+)
+def update_dropdown_value(pathname, options):
+    values = [option['value'] for option in options]
+    return pathname if pathname in values else "None"
+
+
 
 if __name__ == '__main__':
     time.sleep(1)
