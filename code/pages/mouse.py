@@ -33,7 +33,7 @@ else:
 # Load the GroupDropdown React component globally
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
 
-def load_raw_data(data_dir, mouse):
+def load_raw_data(data_dir, mouse, events=None):
     """Load raw merged data for all mice and store in mouse_data."""
     mouse_data = {}
     photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
@@ -51,6 +51,10 @@ def load_raw_data(data_dir, mouse):
         behavior = BehaviorDataset(behavior_path)
         photometry.normalize_signal()
         merged = MergeDatasets(photometry, behavior)
+        print('Add events:', events)
+        if events:
+            for name, intervals in events.items():
+                merged.add_event(name, intervals)
         return merged.to_dict()
     print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
@@ -105,20 +109,23 @@ def layout(id=None, **other_unknown_query_strings):
 
 @callback(
     Output('mouse-data-store', 'data'),
-    [Input('mouse-data-store', 'data'), Input('url', 'pathname'), Input('selected-folder', 'data')]
+    [Input('mouse-data-store', 'data'), 
+     Input('url', 'pathname'), 
+     Input('selected-folder', 'data'), 
+     Input('event-store', 'data')]
 )
-def load_mouse_data(data, pathname, folder):
+def load_mouse_data(data, pathname, folder, events):
     mouse = pathname.split('/')[-1]
     if not data:
         data = {}
 
-    if mouse in data.keys():
+    # Check if data[mouse] exists and is not None before accessing its attributes
+    if mouse in data.keys() and data[mouse] is not None and events == data[mouse].get('events'):
         print('Found mouse data in store:', mouse)
         return data
     else:
         print('load_mouse_data', pathname, folder)
-        
-        mouse_data = load_raw_data(folder, mouse)
+        mouse_data = load_raw_data(folder, mouse, events)
         data[mouse] = mouse_data
         return data
 

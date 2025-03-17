@@ -29,7 +29,7 @@ color_map = {
     'Control': '#FFFFBA'
 }
 
-def load_raw_data(data_dir, mouse):
+def load_raw_data(data_dir, mouse, events):
     """Load raw merged data for all mice and store in mouse_data."""
     mouse_data = {}
     photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
@@ -47,6 +47,10 @@ def load_raw_data(data_dir, mouse):
         behavior = BehaviorDataset(behavior_path)
         photometry.normalize_signal()
         merged = MergeDatasets(photometry, behavior)
+        print('Add events:', events)
+        if events:
+            for name, intervals in events.items():
+                merged.add_event(name, intervals)
         return merged.to_dict()
     print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
@@ -131,20 +135,24 @@ layout = html.Div([
 
 @callback(
     Output('mouse-data-store', 'data', allow_duplicate=True),
-    [Input('mouse-data-store', 'data'), Input('url', 'pathname'), Input('selected-folder', 'data'), Input('app-state', 'data')],
+    [Input('mouse-data-store', 'data'), 
+     Input('url', 'pathname'), 
+     Input('selected-folder', 'data'), 
+     Input('app-state', 'data'), 
+     Input('event-store', 'data')],
     prevent_initial_call=True
 )
-def load_mouse_data(data, pathname, folder, app_state):
-    mouse_data = app_state.get('mouse_data', {})
-    # filter out 'average' and '/' from mouse_data
-    for mouse in mouse_data:
-        if not data:
-            data = {}
 
-        if mouse not in data.keys():
+def load_mouse_data(data, pathname, folder, app_state, events):
+    mouse_data = app_state.get('mouse_data', {})
+    if not data:
+        data = {}
+
+    for mouse in mouse_data:
+        # Check if data[mouse] is None or if events do not match
+        if mouse not in data.keys() or not data[mouse] or events != data[mouse].get('events', None):
             print('load_mouse_data', pathname, folder)
-            
-            mouse_data = load_raw_data(folder, mouse)
+            mouse_data = load_raw_data(folder, mouse, events)
             data[mouse] = mouse_data
         else:
             print('Found mouse data in store:', mouse)
