@@ -32,6 +32,7 @@ else:
 
 # Load the GroupDropdown React component globally
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
+EventRender = load_react_component(app, "components", "EventRender.js")
 
 def load_raw_data(data_dir, mouse, events=None):
     """Load raw merged data for all mice and store in mouse_data."""
@@ -73,6 +74,7 @@ def layout(id=None, **other_unknown_query_strings):
                 daq.BooleanSwitch(id='boolean-switch', on=True, color='lightblue'),
                 html.Div(id='boolean-switch-output')
             ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
+            html.Div([EventRender(id='event-selection-mouse', value='freezing')], style={'margin-bottom': '10px'}),
             html.Div([
                 html.Label("Seconds Before Event:"),
                 dcc.Input(
@@ -107,6 +109,19 @@ def layout(id=None, **other_unknown_query_strings):
         html.Div(id='mouse-content')
     ])
 
+# Callback to populate EventSelection options from event-store
+@app.callback(
+    Output('event-selection-mouse', 'options'),
+    [Input('event-store', 'data')]
+)
+def populate_event_selection_options(event_store):
+    if event_store:
+        # Convert event-store keys to dropdown options
+        options = list(event_store.keys())
+    else:
+        options = []
+    return [{'label': key, 'value': key, 'text': key} for key in options]
+
 @callback(
     Output('mouse-data-store', 'data'),
     [Input('mouse-data-store', 'data'), 
@@ -135,20 +150,24 @@ def load_mouse_data(data, pathname, folder, events):
      Input('seconds-before', 'value'),
      Input('seconds-after', 'value'),
      Input('url', 'pathname'),
-     Input('boolean-switch', 'on')],
+     Input('boolean-switch', 'on'),
+     Input('event-selection-mouse', 'value')],
 )
 
-def update_graph(mouse_data, seconds_before, seconds_after, pathname, on):
+def update_graph(mouse_data, seconds_before, seconds_after, pathname, on, selected_event):
     if not mouse_data:
             return "No data available."
-    
+    print('selected_event:', selected_event)
     mouse = pathname.split('/')[-1]
     mouse_data = mouse_data[mouse]
     merged = MergeDatasets.from_dict(mouse_data)
     mergeddataset = merged.df
     fps = merged.fps
     
-    intervals = merged.get_freezing_intervals()
+    if selected_event == 'freezing':
+        intervals = merged.get_freezing_intervals()
+    else:
+        intervals = merged.get_freezing_intervals(0, selected_event)
     epochs_acc_on = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on)
     epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on)
     epochs_adn_on = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on)
