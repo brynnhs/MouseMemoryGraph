@@ -76,9 +76,10 @@ app.layout = html.Div([
     ], style={'text-align': 'center', 'margin-top': '10px'}),
 
     # Store component to persist state
-    dcc.Store(id='app-state', storage_type='local'),
-    dcc.Store(id='selected-folder', storage_type='local'),
-    dcc.Store(id='mouse-data-store', storage_type='local')
+    dcc.Store(id='app-state', storage_type='session'),
+    dcc.Store(id='selected-folder', storage_type='session'),
+    dcc.Store(id='mouse-data-store', storage_type='session'),
+    dcc.Store(id='event-store', data={}),
 ])
 
 app.index_string = '''
