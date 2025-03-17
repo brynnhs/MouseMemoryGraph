@@ -77,22 +77,22 @@ layout = html.Div([
     }),
     html.Div([
         EventSelection(id='event-selection'),
-        html.Div(id='selected-event-output', children="No event selected"),
+        html.Div(id='selected-event-output', style={'margin': '10px 0'}),
         html.Button(
             'Add Interval',
             id='add-interval',
+            disabled=True,
             n_clicks=0,
+            className='button-disabled' if True else 'button-enabled',  # Default to disabled
             style={
                 'height': '40px',
                 'lineHeight': '40px',
                 'borderWidth': '1px',
                 'borderStyle': 'solid',
                 'borderRadius': '10px',
-                'backgroundColor': '#007bff',
-                'color': 'white',
                 'padding': '0 20px'
             }
-        )
+        ),
     ], style={
         'backgroundColor': 'white',
         'borderRadius': '10px',
@@ -104,20 +104,19 @@ layout = html.Div([
 
 @app.callback(
     [Output('event-store', 'data', allow_duplicate=True),
-     Output('selected-event', 'data')],
+     Output('selected-event', 'data'),
+     Output('add-interval', 'disabled'),
+     Output('add-interval', 'className')],
     [Input('event-selection', 'value')],
     [State('event-store', 'data')],
     prevent_initial_call=True
 )
 def update_event_store(selected_event, current_store):
     if selected_event:
-        # Check if the event is already in the store
         if not selected_event in current_store.keys():
-            # Add the new event as a dict with an empty list
-            current_store[selected_event] = [(0,0)]
-        return current_store, selected_event
-    
-    return current_store, None
+            current_store[selected_event] = [(0, 0)]
+        return current_store, selected_event, False, 'button-enabled'
+    return current_store, None, True, 'button-disabled'
 
 @app.callback(
     [Output('selected-event-output', 'children')],
@@ -141,17 +140,34 @@ def update_selected_event_output(selected_event, n_clicks, event_store):
             ],
             editable=True,
             row_deletable=True,
-            style_table={'overflowX': 'auto'},
             style_cell={
                 'textAlign': 'center',
                 'padding': '10px',
                 'border': '1px solid #ccc'
             },
             style_header={
+                'fontFamily': 'Arial, sans-serif',
                 'backgroundColor': '#f4f4f4',
                 'fontWeight': 'bold',
-                'border': '1px solid #ccc'
+                'border': '1px solid #ccc',
             },
+            style_data={
+                'fontFamily': 'Arial, sans-serif',  # Set the default font
+                'fontSize': '14px'  # Optional: Set a default font size
+            },
+            style_data_conditional=[
+                {
+                    'if': {'state': 'active'},  # When a cell is active
+                    'backgroundColor': 'inherit',  # Keep the background color unchanged
+                    'border': '3px solid #ccc'  # Keep the border consistent
+                },
+                {
+                    'if': {'state': 'selected'},  # When a cell is selected
+                    'backgroundColor': 'inherit',  # Keep the background color unchanged
+                    'border': '3px solid #ccc'  # Keep the border consistent
+                }
+            ],
+            style_as_list_view=True,
             data=event_store[selected_event]
         ),
 

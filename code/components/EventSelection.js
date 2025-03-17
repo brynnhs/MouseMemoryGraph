@@ -44,25 +44,11 @@ export default function EventSelection(props) {
     }
 
     return React.createElement('div', { style: { position: 'relative', display: 'inline-block', width: '400px' } }, [
-        // Input for adding a new event
-        React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginBottom: '10px' } }, [
-            React.createElement('input', {
-                type: 'text',
-                value: newEventName,
-                onChange: handleNewEventChange,
-                placeholder: 'Enter event name',
-                style: { padding: '10px', width: 'calc(100% - 100px)', marginRight: '10px', borderRadius: '5px', border: '1px solid #ccc' }
-            }),
-            React.createElement('button', {
-                onClick: handleAddNewEvent,
-                style: { padding: '10px 20px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#007bff', color: 'white', cursor: 'pointer' }
-            }, 'Add Event')
-        ]),
         // Dropdown for selecting events
         React.createElement('div', {
             id: id,
             onClick: () => setDropdownOpen(!dropdownOpen),
-            style: { padding: '10px', borderRadius: '5px', border: '1px solid #ccc', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }
+            style: { padding: '10px', borderRadius: '5px', border: '1px solid #ccc', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }
         }, [
             React.createElement('div', { style: { display: 'flex', alignItems: 'center' } }, [
                 React.createElement('span', {
@@ -77,32 +63,46 @@ export default function EventSelection(props) {
                 }),
                 React.createElement('span', null, value || 'No event selected')
             ]),
-            React.createElement('span', { style: { fontSize: '12px', color: '#888' } }, dropdownOpen ? '▲' : '▼')
+            React.createElement('span', { style: { fontSize: '12px', color: '#888' } }, dropdownOpen ? '▲' : '▼'),
+            dropdownOpen && React.createElement('div', {
+                style: { position: 'absolute', top: 'calc(100% + 5px)', left: 0, right: 0, border: '1px solid #ccc', borderRadius: '5px', backgroundColor: 'white', zIndex: 1, minWidth: 'max-content', maxHeight: '200px', overflowY: 'auto' }
+            }, [
+                events.length === 0
+                    ? React.createElement('div', { style: { padding: '10px', color: '#888', textAlign: 'center' } }, 'No events registered')
+                    : events.map(event =>
+                        React.createElement('div', {
+                            key: event.key,
+                            onClick: () => onChange(event.value),
+                            style: { padding: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', marginBottom: '5px' }
+                        }, [
+                            React.createElement('span', {
+                                style: {
+                                    display: 'inline-block',
+                                    width: '10px',
+                                    height: '10px',
+                                    backgroundColor: event.color,
+                                    borderRadius: '50%',
+                                    marginRight: '5px'
+                                }
+                            }),
+                            event.text
+                        ])
+                    )
+            ])
         ]),
-        dropdownOpen && React.createElement('div', {
-            style: { position: 'absolute', top: '100%', left: 0, right: 0, border: '1px solid #ccc', borderRadius: '5px', backgroundColor: 'white', zIndex: 1, minWidth: 'max-content', maxHeight: '200px', overflowY: 'auto' }
-        }, [
-            events.length === 0
-                ? React.createElement('div', { style: { padding: '10px', color: '#888', textAlign: 'center' } }, 'No events registered')
-                : events.map(event =>
-                    React.createElement('div', {
-                        key: event.key,
-                        onClick: () => onChange(event.value),
-                        style: { padding: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', marginBottom: '5px' }
-                    }, [
-                        React.createElement('span', {
-                            style: {
-                                display: 'inline-block',
-                                width: '10px',
-                                height: '10px',
-                                backgroundColor: event.color,
-                                borderRadius: '50%',
-                                marginRight: '5px'
-                            }
-                        }),
-                        event.text
-                    ])
-                )
+        // Input for adding a new event
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', marginTop: '10px' } }, [
+            React.createElement('input', {
+                type: 'text',
+                value: newEventName,
+                onChange: handleNewEventChange,
+                placeholder: 'Enter event name',
+                style: { padding: '10px', width: 'calc(100% - 100px)', marginRight: '10px', borderRadius: '5px', border: '1px solid #ccc' }
+            }),
+            React.createElement('button', {
+                onClick: handleAddNewEvent,
+                style: { padding: '10px', borderRadius: '5px', border: '1px solid #ccc', backgroundColor: '#007bff', color: 'white', cursor: 'pointer', whiteSpace: 'nowrap' }
+            }, 'Add Event')
         ])
     ]);
 }
