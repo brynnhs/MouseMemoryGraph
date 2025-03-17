@@ -7,6 +7,10 @@ color_map = {
     'Control': '#FFFFBA'
 }
 
+pastel_colors = [
+    '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BAFF', '#FFBAE1', '#BAFFD4'
+]
+
 def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before, after, fps, color_overrides=None):
     """
     Generate average plots for ON and OFF epochs.
@@ -195,7 +199,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
     
     return fig_on, fig_off, avg_change_on, avg_change_off
 
-def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, name='ACC'):
+def generate_plots(object, mergeddataset, intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, name='ACC'):
     """
     Generate detailed plots for the given sensor:
       - The full signals figure 
@@ -250,6 +254,20 @@ def generate_plots(mergeddataset, intervals, fps, before, after, epochs_acc_on, 
         on_sec = on / fps
         off_sec = off / fps
         fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+
+    for i, event in enumerate(object.events):
+        if event != 'freezing':
+            event_intervals = object.get_freezing_intervals(0, event)
+            for on, off in event_intervals:
+                on_sec = on / fps
+                off_sec = off / fps
+                fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor=pastel_colors[0], opacity=0.2, layer='below', line_width=0)
+            # Check if a trace with the same name already exists
+            if not any(trace.name == f'Event {event}' for trace in fig.data):
+                fig.add_trace(go.Scatter(
+                    x=[None], y=[None], mode='markers', name=f'Event {event}', 
+                    marker=dict(color=pastel_colors[0], size=7, symbol='square', opacity=0.3)
+                ))
     
     # Build the interval_on and interval_off figures
     aggregate_on = []

@@ -47,7 +47,6 @@ def load_raw_data(data_dir, mouse, events):
         behavior = BehaviorDataset(behavior_path)
         photometry.normalize_signal()
         merged = MergeDatasets(photometry, behavior)
-        print('Add events:', events)
         if events:
             for name, intervals in events.items():
                 merged.add_event(name, intervals)
@@ -151,11 +150,10 @@ def load_mouse_data(data, pathname, folder, app_state, events):
     for mouse in mouse_data:
         # Check if data[mouse] is None or if events do not match
         if mouse not in data.keys() or not data[mouse] or events != data[mouse].get('events', None):
-            print('load_mouse_data', pathname, folder)
             mouse_data = load_raw_data(folder, mouse, events)
             data[mouse] = mouse_data
         else:
-            print('Found mouse data in store:', mouse)
+            print('')
     return data
 
 @callback(

@@ -159,12 +159,12 @@ def update_graph(mouse_data, seconds_before, seconds_after, pathname, on):
     acc_avg_off = merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on)
     adn_avg_off = merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on)
     
-    acc_full, acc_interval_on, acc_interval_off, acc_change = generate_plots(
+    acc_full, acc_interval_on, acc_interval_off, acc_change = generate_plots(merged,
         mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_acc_on, epochs_acc_off, 
         acc_avg_on, acc_avg_off,
         name='ACC'
     )
-    adn_full, adn_interval_on, adn_interval_off, adn_change = generate_plots(
+    adn_full, adn_interval_on, adn_interval_off, adn_change = generate_plots(merged,
         mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_adn_on, epochs_adn_off, 
         adn_avg_on, adn_avg_off,
         name='ADN'

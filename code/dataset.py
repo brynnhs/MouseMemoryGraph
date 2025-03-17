@@ -205,7 +205,7 @@ class MergeDatasets():
         photometry (PhotometryDataset): Photometry dataset.
         behavior (BehaviorDataset): Behavior dataset.
     """
-    def __init__(self, photometry, behavior):
+    def __init__(self, photometry, behavior, events=['freezing']):
         # check that 'Time(s)' is in both dataframes with assert
         assert 'Time(s)' in photometry.df.columns, "Time(s) not in photometry dataframe"
         assert 'Time(s)' in behavior.df.columns, "Time(s) not in behavior dataframe"
@@ -219,19 +219,19 @@ class MergeDatasets():
 
         self.df = pd.merge(photometry.df, behavior.df, on="Time(s)", how="outer")
         self.fps = min(photometry.fps, behavior.fps)
-        self.events = ['freezing']
+        self.events = events
         # drop rows with NaN values
         self.df = self.df.dropna()
         # Optionally filter out rows where DI/O-1 is 0 (currently commented out)
         # self.df = self.df[self.df['DI/O-1'] != 0]
         self.df = self.df.reset_index(drop=True)
 
-    def get_freezing_intervals(self, merge_range=1):
+    def get_freezing_intervals(self, merge_range=1, event='freezing'):
         """
         Get freezing intervals. Merge intervals that are within merge_range seconds of each other.
         """
-        onsets = self.df[self.df['freezing'].diff() == 1].index
-        offsets = self.df[self.df['freezing'].diff() == -1].index
+        onsets = self.df[self.df[event].diff() == 1].index
+        offsets = self.df[self.df[event].diff() == -1].index
         intervals = list(zip(onsets, offsets))
 
         # merge intervals that are within merge_range seconds of each other
@@ -355,6 +355,7 @@ class MergeDatasets():
         """
         instance = cls.__new__(cls)
         instance.df = pd.DataFrame.from_dict(data_dict['df'])
+        instance.events = data_dict['events']
         for event in data_dict['events']:
             instance.df[event] = instance.df[event].astype(int)
         # make index to integer
