@@ -153,14 +153,16 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
             x=[group] * len(group_avg),
             y=group_avg,
             mode='markers',
-            marker_color=color_map[group])
+            marker_color=color_map[group],
+            name=f"{group}_scatter")
         )
         avg_change_on.add_trace(go.Bar(
             x=[group],
             y=[np.mean(group_avg)],
             marker_color=[color_map[group]],
             opacity=0.3,
-            error_y=dict(type='data', array=[np.std(group_avg)], visible=True)
+            error_y=dict(type='data', array=[np.std(group_avg)], visible=True,
+            name=f"{group}_bar")
         ))
     avg_change_on.update_layout(
         title=f'zdFF Change onset', 
@@ -341,20 +343,31 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
             x=['Onset'] * len(avg_on[:, 2]),
             y=avg_on[:, 2],
             mode='markers',
+            name='Onset scatter',
             marker_color='blue'
         ))
         avg_change.add_trace(go.Scatter(
             x=['Offset'] * len(avg_off[:, 2]),
             y=avg_off[:, 2],
             mode='markers',
+            name='Offset scatter',
             marker_color='lightblue'
         ))
         avg_change.add_trace(go.Bar(
-            x=['Onset', 'Offset'],
-            y=[np.mean(avg_on[:, 2]), np.mean(avg_off[:, 2])],
-            marker_color=['blue', 'lightblue'],
+            x=['Onset'],
+            y=[np.mean(avg_on[:, 2])],
+            marker_color=['blue'],
             opacity=0.3,
-            error_y=dict(type='data', array=[np.std(avg_on[:, 2]), np.std(avg_off[:, 2])], visible=True)
+            error_y=dict(type='data', array=[np.std(avg_on[:, 2])], visible=True),
+            name='Onset bar'
+        ))
+        avg_change.add_trace(go.Bar(
+            x=['Offset'],
+            y=[np.mean(avg_off[:, 2])],
+            marker_color=['lightblue'],
+            opacity=0.3,
+            error_y=dict(type='data', array=[np.std(avg_off[:, 2])], visible=True),
+            name='Offset bar'
         ))
         avg_change.update_layout(title=f'{name} zdFF Change', xaxis_title='Event', yaxis_title='zdFF')
     

@@ -207,10 +207,8 @@ def load_mouse_data(
 
     # Check if data[mouse] exists and is not None before accessing its attributes
     if mouse in data.keys() and data[mouse] is not None and events_hashable == data[mouse].get('events'):
-        print('Found mouse data in store:', mouse)
         return data
     else:
-        print('load_mouse_data', pathname, folder)
         mouse_data = load_raw_data(folder, mouse, events_hashable)
         data[mouse] = mouse_data
         return data
@@ -246,7 +244,6 @@ def update_graph(
 
     if not mouse_data:
             return "No data available."
-    print('selected_event:', selected_event)
     mouse = pathname.split('/')[-1]
     mouse_data = mouse_data[mouse]
     merged = MergeDatasets.from_dict(mouse_data)
@@ -535,6 +532,7 @@ def update_adn_trace_options(
     for i, trace in enumerate(fig['data']):
         trace_name = trace.get('name', f"Trace {i+1}")
         options.append({'label': trace_name, 'value': i})
+    print(options)
     return options
 
 

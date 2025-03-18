@@ -34,7 +34,6 @@ def load_raw_data(data_dir):
     mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
     for mouse in mouse_folders:
             mouse_data[mouse] = []
-    print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
     return mouse_data
 
@@ -122,7 +121,6 @@ app.index_string = '''
     State('input-path', 'value')
 )
 def update_app_state(n_clicks, data, input_value):
-    print(data)
     # if already data in the app state, return it
     if n_clicks > 0 and input_value:
         mouse_data = load_raw_data(input_value)

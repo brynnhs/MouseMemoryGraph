@@ -51,7 +51,6 @@ def load_raw_data(data_dir, mouse, events):
             for name, intervals in events.items():
                 merged.add_event(name, intervals)
         return merged.to_dict()
-    print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
 # Load condition assignments mapping: mouse id -> condition group
 condition_assignments = load_assignments()
