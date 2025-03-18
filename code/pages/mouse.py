@@ -352,56 +352,67 @@ def update_graph(
             'background-color': 'white',
             'border-radius': '10px'}
         ),
-        
-        # Color picker sections for ACC and ADN
         html.Div([
+            # ACC Color Picker Section
             html.Div([
-                html.H3("ACC Color Settings"),
+                html.H3("ACC Color Picker"),
+                html.Label("Select Graph:"),
                 dcc.Dropdown(
-                    id='acc-plot-dropdown',
+                    id='acc-graph-dropdown',
                     options=[
                         {'label': 'Full Signal', 'value': 'full'},
                         {'label': 'Interval On', 'value': 'interval_on'},
                         {'label': 'Interval Off', 'value': 'interval_off'},
+                        {'label': 'Average Change', 'value': 'avg_change'},
+                        {'label': 'Separated Plot', 'value': 'separated'},
                     ],
                     value='full',
-                    placeholder="Select a plot"
+                    placeholder="Select a graph"
                 ),
+                html.Br(),
+                html.Label("Select Trace:"),
                 dcc.Dropdown(
                     id='acc-trace-dropdown',
-                    options=[],
+                    options=[],  # to be populated dynamically via callbacks
                     value=None,
                     placeholder="Select a trace"
                 ),
+                html.Br(),
+                html.Label("Select Color:"),
                 daq.ColorPicker(
                     id='acc-color-picker',
-                    label='Pick a color for ACC',
-                    value={'rgb': dict(r=128, g=128, b=128, a=0)}
+                    value={'rgb': {'r': 128, 'g': 128, 'b': 128, 'a': 1}}
                 )
             ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'}),
-            
+            # ADN Color Picker Section
             html.Div([
-                html.H3("ADN Color Settings"),
+                html.H3("ADN Color Picker"),
+                html.Label("Select Graph:"),
                 dcc.Dropdown(
-                    id='adn-plot-dropdown',
+                    id='adn-graph-dropdown',
                     options=[
                         {'label': 'Full Signal', 'value': 'full'},
                         {'label': 'Interval On', 'value': 'interval_on'},
                         {'label': 'Interval Off', 'value': 'interval_off'},
+                        {'label': 'Average Change', 'value': 'avg_change'},
+                        {'label': 'Separated Plot', 'value': 'separated'},
                     ],
                     value='full',
-                    placeholder="Select a plot"
+                    placeholder="Select a graph"
                 ),
+                html.Br(),
+                html.Label("Select Trace:"),
                 dcc.Dropdown(
                     id='adn-trace-dropdown',
-                    options=[],
+                    options=[],  # to be populated dynamically via callbacks
                     value=None,
                     placeholder="Select a trace"
                 ),
+                html.Br(),
+                html.Label("Select Color:"),
                 daq.ColorPicker(
                     id='adn-color-picker',
-                    label='Pick a color for ADN',
-                    value={'rgb': dict(r=128, g=128, b=128, a=0)}
+                    value={'rgb': {'r': 128, 'g': 128, 'b': 128, 'a': 1}}
                 )
             ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
         ], style={'display': 'flex', 'flex-direction': 'row', 'justify-content': 'space-around'})
@@ -438,3 +449,274 @@ def manage_mouse_assignment(
         mouse_id = pathname.split('/')[-1]
         return mouse_assignments.get(mouse_id, 'default_group')
     return current_value
+
+@app.callback(
+    Output('acc-trace-dropdown', 'options'),
+    [
+        Input('acc-graph-dropdown', 'value'),
+        Input('acc', 'figure'),
+        Input('accintervalon', 'figure'),
+        Input('accintervaloff', 'figure'),
+        Input('accchange', 'figure'),
+        Input('acc_separated', 'figure')
+    ]
+)
+def update_acc_trace_options(
+    selected_graph,
+    fig_full,
+    fig_interval_on,
+    fig_interval_off,
+    fig_change,
+    fig_separated
+):
+    """
+    Decide which figure to pull trace data from based on selected_graph.
+    Then create a list of options (label/value) from that figure's traces.
+    """
+    if selected_graph == 'full':
+        fig = fig_full
+    elif selected_graph == 'interval_on':
+        fig = fig_interval_on
+    elif selected_graph == 'interval_off':
+        fig = fig_interval_off
+    elif selected_graph == 'avg_change':
+        fig = fig_change
+    elif selected_graph == 'separated':
+        fig = fig_separated
+    else:
+        fig = fig_full
+
+    if not fig or 'data' not in fig:
+        return []
+
+    options = []
+    for i, trace in enumerate(fig['data']):
+        trace_name = trace.get('name', f"Trace {i+1}")
+        options.append({'label': trace_name, 'value': i})
+    return options
+
+
+@app.callback(
+    Output('adn-trace-dropdown', 'options'),
+    [
+        Input('adn-graph-dropdown', 'value'),
+        Input('adn', 'figure'),
+        Input('adnintervalon', 'figure'),
+        Input('adnintervaloff', 'figure'),
+        Input('adnchange', 'figure'),
+        Input('adn_separated', 'figure')
+    ]
+)
+def update_adn_trace_options(
+    selected_graph,
+    fig_full,
+    fig_interval_on,
+    fig_interval_off,
+    fig_change,
+    fig_separated
+):
+    if selected_graph == 'full':
+        fig = fig_full
+    elif selected_graph == 'interval_on':
+        fig = fig_interval_on
+    elif selected_graph == 'interval_off':
+        fig = fig_interval_off
+    elif selected_graph == 'avg_change':
+        fig = fig_change
+    elif selected_graph == 'separated':
+        fig = fig_separated
+    else:
+        fig = fig_full
+
+    if not fig or 'data' not in fig:
+        return []
+
+    options = []
+    for i, trace in enumerate(fig['data']):
+        trace_name = trace.get('name', f"Trace {i+1}")
+        options.append({'label': trace_name, 'value': i})
+    return options
+
+
+@app.callback(
+    [
+      Output('acc', 'figure'),
+      Output('accintervalon', 'figure'),
+      Output('accintervaloff', 'figure'),
+      Output('accchange', 'figure'),
+      Output('acc_separated', 'figure')
+    ],
+    [Input('acc-color-picker', 'value'),
+     Input('acc-graph-dropdown', 'value'),
+     Input('acc-trace-dropdown', 'value')],
+    [
+      State('acc', 'figure'),
+      State('accintervalon', 'figure'),
+      State('accintervaloff', 'figure'),
+      State('accchange', 'figure'),
+      State('acc_separated', 'figure')
+    ]
+)
+def update_acc_color(color_value, selected_graph, selected_trace,
+                     fig_full, fig_interval_on, fig_interval_off,
+                     fig_change, fig_separated):
+    if selected_trace is None or color_value is None:
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    rgb = color_value.get('rgb', {})
+    r = rgb.get('r', 0)
+    g = rgb.get('g', 0)
+    b = rgb.get('b', 0)
+    a = rgb.get('a', 1)
+    new_color = f"rgba({r},{g},{b},{a})"
+
+    if selected_graph == 'full':
+        if fig_full and 'data' in fig_full and len(fig_full['data']) > selected_trace:
+            if 'line' in fig_full['data'][selected_trace]:
+                fig_full['data'][selected_trace]['line']['color'] = new_color
+            else:
+                fig_full['data'][selected_trace]['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    elif selected_graph == 'interval_on':
+        if fig_interval_on and 'data' in fig_interval_on and len(fig_interval_on['data']) > selected_trace:
+            if 'line' in fig_interval_on['data'][selected_trace]:
+                fig_interval_on['data'][selected_trace]['line']['color'] = new_color
+            else:
+                fig_interval_on['data'][selected_trace]['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    elif selected_graph == 'interval_off':
+        if fig_interval_off and 'data' in fig_interval_off and len(fig_interval_off['data']) > selected_trace:
+            if 'line' in fig_interval_off['data'][selected_trace]:
+                fig_interval_off['data'][selected_trace]['line']['color'] = new_color
+            else:
+                fig_interval_off['data'][selected_trace]['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    elif selected_graph == 'avg_change':
+        if fig_change and 'data' in fig_change and len(fig_change['data']) > selected_trace:
+            trace = fig_change['data'][selected_trace]
+            if trace.get('type') == 'box':
+                # Update both the marker (dots) and line (box outline) colors
+                trace['marker']['color'] = new_color
+                trace['line']['color'] = new_color
+                # Set fillcolor to same hue but with a fixed alpha (e.g., 0.2)
+                import re
+                match = re.match(r"rgba\((\d+),(\d+),(\d+),([\d.]+)\)", new_color)
+                if match:
+                    r_val, g_val, b_val, alpha = match.groups()
+                    fillcolor = f"rgba({r_val},{g_val},{b_val},0.2)"
+                    trace['fillcolor'] = fillcolor
+                else:
+                    trace['fillcolor'] = new_color
+            elif trace.get('type') in ['bar']:
+                trace['marker']['color'] = new_color
+            elif 'line' in trace:
+                trace['line']['color'] = new_color
+            elif 'marker' in trace:
+                trace['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    elif selected_graph == 'separated':
+        if fig_separated and 'data' in fig_separated and len(fig_separated['data']) > selected_trace:
+            trace = fig_separated['data'][selected_trace]
+            if 'line' in trace:
+                trace['line']['color'] = new_color
+            elif 'marker' in trace:
+                trace['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    else:
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+
+@app.callback(
+    [
+      Output('adn', 'figure'),
+      Output('adnintervalon', 'figure'),
+      Output('adnintervaloff', 'figure'),
+      Output('adnchange', 'figure'),
+      Output('adn_separated', 'figure')
+    ],
+    [Input('adn-color-picker', 'value'),
+     Input('adn-graph-dropdown', 'value'),
+     Input('adn-trace-dropdown', 'value')],
+    [
+      State('adn', 'figure'),
+      State('adnintervalon', 'figure'),
+      State('adnintervaloff', 'figure'),
+      State('adnchange', 'figure'),
+      State('adn_separated', 'figure')
+    ]
+)
+def update_adn_color(color_value, selected_graph, selected_trace,
+                     fig_full, fig_interval_on, fig_interval_off,
+                     fig_change, fig_separated):
+    if selected_trace is None or color_value is None:
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    rgb = color_value.get('rgb', {})
+    r = rgb.get('r', 0)
+    g = rgb.get('g', 0)
+    b = rgb.get('b', 0)
+    a = rgb.get('a', 1)
+    new_color = f"rgba({r},{g},{b},{a})"
+
+    if selected_graph == 'full':
+        if fig_full and 'data' in fig_full and len(fig_full['data']) > selected_trace:
+            if 'line' in fig_full['data'][selected_trace]:
+                fig_full['data'][selected_trace]['line']['color'] = new_color
+            else:
+                fig_full['data'][selected_trace]['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    elif selected_graph == 'interval_on':
+        if fig_interval_on and 'data' in fig_interval_on and len(fig_interval_on['data']) > selected_trace:
+            if 'line' in fig_interval_on['data'][selected_trace]:
+                fig_interval_on['data'][selected_trace]['line']['color'] = new_color
+            else:
+                fig_interval_on['data'][selected_trace]['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    elif selected_graph == 'interval_off':
+        if fig_interval_off and 'data' in fig_interval_off and len(fig_interval_off['data']) > selected_trace:
+            if 'line' in fig_interval_off['data'][selected_trace]:
+                fig_interval_off['data'][selected_trace]['line']['color'] = new_color
+            else:
+                fig_interval_off['data'][selected_trace]['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    elif selected_graph == 'avg_change':
+        if fig_change and 'data' in fig_change and len(fig_change['data']) > selected_trace:
+            trace = fig_change['data'][selected_trace]
+            if trace.get('type') == 'box':
+                trace['marker']['color'] = new_color
+                trace['line']['color'] = new_color
+                import re
+                match = re.match(r"rgba\((\d+),(\d+),(\d+),([\d.]+)\)", new_color)
+                if match:
+                    r_val, g_val, b_val, alpha = match.groups()
+                    fillcolor = f"rgba({r_val},{g_val},{b_val},0.2)"
+                    trace['fillcolor'] = fillcolor
+                else:
+                    trace['fillcolor'] = new_color
+            elif trace.get('type') in ['bar']:
+                trace['marker']['color'] = new_color
+            elif 'line' in trace:
+                trace['line']['color'] = new_color
+            elif 'marker' in trace:
+                trace['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    elif selected_graph == 'separated':
+        if fig_separated and 'data' in fig_separated and len(fig_separated['data']) > selected_trace:
+            trace = fig_separated['data'][selected_trace]
+            if 'line' in trace:
+                trace['line']['color'] = new_color
+            elif 'marker' in trace:
+                trace['marker']['color'] = new_color
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+
+    else:
+        return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
