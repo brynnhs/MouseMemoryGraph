@@ -1,0 +1,9 @@
+dash=2.18.2
+dash-daq
+dash_local_react_components
+pandas
+numpy
+matplotlib
+scipy
+plotly
+gunicorn
