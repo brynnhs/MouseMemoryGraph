@@ -16,6 +16,8 @@ from dash_local_react_components import load_react_component
 from visualize import generate_plots
 
 from utils import load_assignments, save_assignments
+from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 
 # Global container for mouse condition assignments
 mouse_assignments = load_assignments()
@@ -34,9 +36,13 @@ else:
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
 EventRender = load_react_component(app, "components", "EventRender.js")
 
+# Cache for data loading
+@lru_cache(maxsize=10)
 def load_raw_data(data_dir, mouse, events=None):
-    """Load raw merged data for all mice and store in mouse_data."""
-    mouse_data = {}
+    """Load raw merged data for a specific mouse and cache the result."""
+    # Convert events dictionary to a hashable type (tuple of sorted key-value pairs)
+    events = tuple(sorted(events.items())) if events else None
+
     photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
     behavior_path = os.path.join(data_dir, mouse, "Behavior.csv")
     if os.path.exists(photometry_path) and os.path.exists(behavior_path):
@@ -52,12 +58,11 @@ def load_raw_data(data_dir, mouse, events=None):
         behavior = BehaviorDataset(behavior_path)
         photometry.normalize_signal()
         merged = MergeDatasets(photometry, behavior)
-        print('Add events:', events)
         if events:
-            for name, intervals in events.items():
+            for name, intervals in dict(events).items():  # Convert back to dict for processing
                 merged.add_event(name, intervals)
         return merged.to_dict()
-    print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
+    return None
 
 def layout(id=None, **other_unknown_query_strings):
     mouse = id
@@ -134,13 +139,19 @@ def load_mouse_data(data, pathname, folder, events):
     if not data:
         data = {}
 
+    # Safely convert events to a hashable type
+    try:
+        events_hashable = tuple(sorted(events.items())) if isinstance(events, dict) else None
+    except AttributeError:
+        events_hashable = None
+
     # Check if data[mouse] exists and is not None before accessing its attributes
-    if mouse in data.keys() and data[mouse] is not None and events == data[mouse].get('events'):
+    if mouse in data.keys() and data[mouse] is not None and events_hashable == data[mouse].get('events'):
         print('Found mouse data in store:', mouse)
         return data
     else:
         print('load_mouse_data', pathname, folder)
-        mouse_data = load_raw_data(folder, mouse, events)
+        mouse_data = load_raw_data(folder, mouse, events_hashable)
         data[mouse] = mouse_data
         return data
 
@@ -164,30 +175,37 @@ def update_graph(mouse_data, seconds_before, seconds_after, pathname, on, select
     mergeddataset = merged.df
     fps = merged.fps
     
-    if selected_event == 'freezing':
-        intervals = merged.get_freezing_intervals()
-    else:
-        intervals = merged.get_freezing_intervals(0, selected_event)
-    epochs_acc_on = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on)
-    epochs_acc_off = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on)
-    epochs_adn_on = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on)
-    epochs_adn_off = merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on)
+    # Precompute intervals and epochs
+    intervals = merged.get_freezing_intervals() if selected_event == 'freezing' else merged.get_freezing_intervals(0, selected_event)
+    freezing_intervals = merged.get_freezing_intervals()
+    epoch_data = {
+        'ACC': {
+            'on': merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on),
+            'off': merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on)
+        },
+        'ADN': {
+            'on': merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on),
+            'off': merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on)
+        }
+    }
 
-    acc_avg_on = merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on)
-    adn_avg_on = merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on)
-    acc_avg_off = merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on)
-    adn_avg_off = merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on)
-    
-    acc_full, acc_interval_on, acc_interval_off, acc_change = generate_plots(merged,
-        mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_acc_on, epochs_acc_off, 
-        acc_avg_on, acc_avg_off,
-        name='ACC'
-    )
-    adn_full, adn_interval_on, adn_interval_off, adn_change = generate_plots(merged,
-        mergeddataset, intervals, fps, seconds_before, seconds_after, epochs_adn_on, epochs_adn_off, 
-        adn_avg_on, adn_avg_off,
-        name='ADN'
-    )
+    # Use ThreadPoolExecutor for parallel figure generation
+    with ThreadPoolExecutor() as executor:
+        acc_future = executor.submit(generate_plots, merged, merged.df, freezing_intervals, fps, seconds_before, seconds_after,
+                                     epoch_data['ACC']['on'], epoch_data['ACC']['off'],
+                                     merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on),
+                                     merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on),
+                                     selected_event,
+                                     name='ACC')
+        adn_future = executor.submit(generate_plots, merged, merged.df, freezing_intervals, fps, seconds_before, seconds_after,
+                                     epoch_data['ADN']['on'], epoch_data['ADN']['off'],
+                                     merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on),
+                                     merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on),
+                                     selected_event,
+                                     name='ADN')
+
+        acc_full, acc_interval_on, acc_interval_off, acc_change = acc_future.result()
+        adn_full, adn_interval_on, adn_interval_off, adn_change = adn_future.result()
     
     content = html.Div([
         # ACC Section

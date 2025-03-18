@@ -199,7 +199,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
     
     return fig_on, fig_off, avg_change_on, avg_change_off
 
-def generate_plots(object, mergeddataset, intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, name='ACC'):
+def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, event, name='ACC'):
     """
     Generate detailed plots for the given sensor:
       - The full signals figure 
@@ -241,31 +241,31 @@ def generate_plots(object, mergeddataset, intervals, fps, before, after, epochs_
     
     # Dummy traces for legend
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'freezing bouts > {after}s', 
+        x=[None], y=[None], mode='markers', name=f'freezing bouts in analysis', 
         marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
     ))
     fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'freezing bouts < {after}s', 
+        x=[None], y=[None], mode='markers', name=f'all freezing bouts', 
         marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
     ))
     
-    # Highlight intervals in the full figure
-    for on, off in intervals:
+    # Highlight all freezing intervals
+    for on, off in freezing_intervals:
         on_sec = on / fps
         off_sec = off / fps
         fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
 
-    for i, event in enumerate(object.events):
-        if event != 'freezing':
-            event_intervals = object.get_freezing_intervals(0, event)
+    for i, e in enumerate(object.events):
+        if e != 'freezing':
+            event_intervals = object.get_freezing_intervals(0, e)
             for on, off in event_intervals:
                 on_sec = on / fps
                 off_sec = off / fps
                 fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor=pastel_colors[0], opacity=0.2, layer='below', line_width=0)
             # Check if a trace with the same name already exists
-            if not any(trace.name == f'Event {event}' for trace in fig.data):
+            if not any(trace.name == f'Event {e}' for trace in fig.data):
                 fig.add_trace(go.Scatter(
-                    x=[None], y=[None], mode='markers', name=f'Event {event}', 
+                    x=[None], y=[None], mode='markers', name=f'Event {e}', 
                     marker=dict(color=pastel_colors[0], size=7, symbol='square', opacity=0.3)
                 ))
     
@@ -282,7 +282,8 @@ def generate_plots(object, mergeddataset, intervals, fps, before, after, epochs_
         ))
         aggregate_on.append(y_epoch)
         fig.add_vrect(
-            x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue', opacity=0.2, layer='below', line_width=0
+            x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue' if event=='freezing' else pastel_colors[0], 
+            opacity=0.2, layer='below', line_width=0
         )
     
     for i, inter in enumerate(epochs_acc_off):
