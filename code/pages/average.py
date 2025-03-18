@@ -96,6 +96,27 @@ layout = html.Div([
                 style={'margin-left': '10px'}
             ),
         ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
+        # New: Axis Step Settings
+         html.Div([
+             html.Label("X-Axis Step:"),
+             dcc.Input(
+                 id="x-axis-step",
+                 type="number",
+                 placeholder="X-Axis Step",
+                 min=0.05,
+                 value=1,
+                 style={'margin-left': '10px', 'margin-right': '20px'}
+             ),
+             html.Label("Y-Axis Step:"),
+             dcc.Input(
+                 id="y-axis-step",
+                 type="number",
+                 placeholder="Y-Axis Step",
+                 min=0.05,
+                 value=1,
+                 style={'margin-left': '10px'}
+             )
+         ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'})
     ], style={
         'display': 'flex', 
         'flex-direction': 'row', 
@@ -224,12 +245,22 @@ def update_trace_dropdown(selected_plot, stored_figures):
     [Input('mouse-data-store', 'data'),
      Input('seconds-before', 'value'),
      Input('seconds-after', 'value'),
+     Input('x-axis-step', 'value'),
+     Input('y-axis-step', 'value'),
      Input('group-selection', 'value'),
      Input('boolean-switch', 'on'),
      Input('color-overrides', 'data'),
      Input('event-selection-average', 'value')],
 )
-def update_graph(mouse_data, seconds_before, seconds_after, selected_groups, on, color_overrides, selected_event):
+def update_graph(mouse_data, 
+                 seconds_before, 
+                 seconds_after, 
+                 x_axis_step,
+                 y_axis_step,
+                 selected_groups, 
+                 on, 
+                 color_overrides, 
+                 selected_event):
 
     # Default to all groups if none selected.
     if not selected_groups:
@@ -291,6 +322,11 @@ def update_graph(mouse_data, seconds_before, seconds_after, selected_groups, on,
     acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_overrides)
     adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_overrides)
     
+    # Update axis tick step for all figures
+    for fig in [acc_on_fig, acc_off_fig, adn_on_fig, adn_off_fig, acc_on_change, acc_off_change, adn_on_change, adn_off_change]:
+        fig.update_xaxes(dtick=x_axis_step)
+        fig.update_yaxes(dtick=y_axis_step)
+
     content = html.Div([
         html.Div([
             html.Div([
