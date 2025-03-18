@@ -9,13 +9,13 @@ import pandas as pd
 import plotly.graph_objs as go
 from dash import dcc, html, callback
 from dash.dependencies import Input, Output, State
-from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
+from code.dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
 
 # Import visualization functions (from your separate file)
-from visualize import generate_plots, generate_separated_plot
+from code.visualize import generate_plots, generate_separated_plot
 
-from utils import load_assignments, save_assignments
+from code.utils import load_assignments, save_assignments
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 

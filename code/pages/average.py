@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from dash import dcc, html, callback
 from dash.dependencies import Input, Output, State
-from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
+from code.dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
 
 # Import visualization functions
