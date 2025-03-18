@@ -384,3 +384,103 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
     )
     
     return fig, interval_on, interval_off, avg_change
+
+def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fps, freezing_intervals, seconds_after, event):
+    """
+    Generate a separated plot for a given sensor (e.g., 'ACC' or 'ADN').
+
+    - `offset`: fixed value to subtract from the control channel.
+    - `epochs_on`: the onset epoch data (used to add additional shading).
+    - `mergeddataset`: the merged dataframe containing the sensor data.
+    - `fps`: frames per second.
+    - `intervals`: freezing intervals.
+    - `seconds_after`: used for legend text.
+    
+    The function converts the sensor signal and control into a percentage of the maximum absolute zdFF,
+    subtracts the offset from the control, adds traces, and replicates the freezing shading logic:
+    (A) Shades all intervals with lightblue (opacity 0.3),
+    (B) Shades onset epochs with blue (opacity 0.2),
+    and adds dummy legend traces. The background is set to white.
+    """
+    fig = go.Figure()
+    x_vals = np.arange(0, len(mergeddataset) / fps, 1 / fps)
+    
+    zdff = mergeddataset[f'{sensor}.zdFF']
+    max_z = np.max(np.abs(zdff)) if np.max(np.abs(zdff)) != 0 else 1
+    signal = mergeddataset[f'{sensor}.signal']
+    control = mergeddataset[f'{sensor}.control']
+    
+    signal_percent = 100 * (signal / max_z)
+    control_percent = 100 * (control / max_z)
+    
+    # Subtract the fixed offset from the control channel
+    control_percent = control_percent - offset
+     
+    fig.add_trace(go.Scatter(
+        x=x_vals,
+        y=signal_percent,
+        mode='lines',
+        name=f'{sensor} Signal',
+        line=dict(color='blue', width=1, dash='solid'),
+
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_vals,
+        y=control_percent,
+        mode='lines',
+        name=f'{sensor} Control',
+        line=dict(color='gray', width=1, dash='solid'), 
+        opacity=0.5
+    ))
+
+    # Add dummy legend traces for freezing shading
+    # Dummy traces for legend
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode='markers', name=f'freezing bouts in analysis', 
+    marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
+    ))
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None], mode='markers', name=f'all freezing bouts', 
+        marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
+    ))
+
+    for i, e in enumerate(object.events):
+        if e != 'freezing':
+            event_intervals = object.get_freezing_intervals(0, e)
+            for on, off in event_intervals:
+                on_sec = on / fps
+                off_sec = off / fps
+                fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor=pastel_colors[0], opacity=0.2, layer='below', line_width=0)
+            # Check if a trace with the same name already exists
+            if not any(trace.name == f'Event {e}' for trace in fig.data):
+                fig.add_trace(go.Scatter(
+                    x=[None], y=[None], mode='markers', name=f'Event {e}', 
+                    marker=dict(color=pastel_colors[0], size=7, symbol='square', opacity=0.3)
+                ))
+     
+    # (A) Shade all freezing intervals with lightblue (opacity 0.3)
+    for on_time, off_time in freezing_intervals:
+        fig.add_vrect(
+            x0=on_time / fps,
+            x1=off_time / fps,
+            fillcolor='lightblue',
+            opacity=0.3,
+            layer='below',
+            line_width=0
+        )
+    for inter in epochs_on:
+        fig.add_vrect(
+            x0=inter[1][0] / fps, 
+            x1=inter[1][1] / fps, 
+            fillcolor='blue' if event=='freezing' else pastel_colors[0], 
+            opacity=0.2, 
+            layer='below', 
+            line_width=0
+        )
+     
+    overall_min = min(signal_percent.min(), control_percent.min()) - 5
+    overall_max = max(signal_percent.max(), control_percent.max()) + 5
+    fig.update_yaxes(range=[overall_min, overall_max], showticklabels=False)
+    fig.update_layout(title='', xaxis_title='Time (s)', yaxis_title=f'% of {sensor} zdFF',
+                    paper_bgcolor='white', plot_bgcolor='white')
+    return fig

@@ -13,7 +13,7 @@ from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
 
 # Import visualization functions (from your separate file)
-from visualize import generate_plots
+from visualize import generate_plots, generate_separated_plot
 
 from utils import load_assignments, save_assignments
 from functools import lru_cache
@@ -250,6 +250,7 @@ def update_graph(
     mouse = pathname.split('/')[-1]
     mouse_data = mouse_data[mouse]
     merged = MergeDatasets.from_dict(mouse_data)
+    mergeddataset = merged.df
     fps = merged.fps
     
     # Precompute intervals and epochs
@@ -284,6 +285,13 @@ def update_graph(
         acc_full, acc_interval_on, acc_interval_off, acc_change = acc_future.result()
         adn_full, adn_interval_on, adn_interval_off, adn_change = adn_future.result()
 
+    acc_separated = generate_separated_plot(merged, 'ACC', 200,
+                                             merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on),
+                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event)
+    adn_separated = generate_separated_plot(merged, 'ADN', 200,
+                                             merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on),
+                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event)
+
     # Update axis steps and layout titles for all figures (not x axis for bar plots)
     figure_list = [
         acc_full, acc_interval_on, acc_interval_off, 
@@ -311,6 +319,7 @@ def update_graph(
         html.Div([
             html.H3("ACC"),
             dcc.Graph(id='acc', figure=acc_full),
+            dcc.Graph(id='acc_separated', figure=acc_separated),
             html.Div([
                 dcc.Graph(id='accintervalon', figure=acc_interval_on, 
                             style={'width': '35%', 'display': 'inline-block'}),
@@ -329,6 +338,7 @@ def update_graph(
         html.Div([
             html.H3("ADN"),
             dcc.Graph(id='adn', figure=adn_full),
+            dcc.Graph(id='adn_separated', figure=adn_separated),
             html.Div([
                 dcc.Graph(id='adnintervalon', figure=adn_interval_on, 
                             style={'width': '35%', 'display': 'inline-block'}),
