@@ -58,6 +58,7 @@ condition_assignments = load_assignments()
 
 # Load the GroupSelection component
 GroupSelection = load_react_component(app, "components", "GroupSelection.js")
+EventRender = load_react_component(app, "components", "EventRender.js")
 
 layout = html.Div([
     dcc.Store(id='stored-figures', data={}),
@@ -74,6 +75,7 @@ layout = html.Div([
             daq.BooleanSwitch(id='boolean-switch', on=True, color='lightblue'),
             html.Div(id='boolean-switch-output')
         ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
+        html.Div([EventRender(id='event-selection-average', value='freezing')], style={'margin-bottom': '10px'}),
         html.Div([
             html.Label("Seconds Before Event:"),
             dcc.Input(
@@ -131,6 +133,19 @@ layout = html.Div([
     )
 ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'}),
 ])
+
+# Callback to populate EventSelection options from event-store
+@app.callback(
+    Output('event-selection-average', 'options'),
+    [Input('event-store', 'data')]
+)
+def populate_event_selection_options(event_store):
+    if event_store:
+        # Convert event-store keys to dropdown options
+        options = list(event_store.keys())
+    else:
+        options = []
+    return [{'label': key, 'value': key, 'text': key} for key in options]
 
 @callback(
     Output('mouse-data-store', 'data', allow_duplicate=True),
@@ -211,9 +226,10 @@ def update_trace_dropdown(selected_plot, stored_figures):
      Input('seconds-after', 'value'),
      Input('group-selection', 'value'),
      Input('boolean-switch', 'on'),
-     Input('color-overrides', 'data')],
+     Input('color-overrides', 'data'),
+     Input('event-selection-average', 'value')],
 )
-def update_graph(mouse_data, seconds_before, seconds_after, selected_groups, on, color_overrides):
+def update_graph(mouse_data, seconds_before, seconds_after, selected_groups, on, color_overrides, selected_event):
 
     # Default to all groups if none selected.
     if not selected_groups:
@@ -241,7 +257,9 @@ def update_graph(mouse_data, seconds_before, seconds_after, selected_groups, on,
         if mouse_group not in selected_groups:
             continue
 
-        intervals = merged.get_freezing_intervals()
+        # Precompute intervals and epochs
+        intervals = merged.get_freezing_intervals() if selected_event == 'freezing' else merged.get_freezing_intervals(0, selected_event)
+
         if fps is None:
             fps = merged.fps
         acc_epochs_on = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, type='on', filter=on)
