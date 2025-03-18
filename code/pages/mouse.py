@@ -38,7 +38,11 @@ EventRender = load_react_component(app, "components", "EventRender.js")
 
 # Cache for data loading
 @lru_cache(maxsize=10)
-def load_raw_data(data_dir, mouse, events=None):
+def load_raw_data(
+    data_dir, 
+    mouse, 
+    events=None
+    ):
     """Load raw merged data for a specific mouse and cache the result."""
     # Convert events dictionary to a hashable type (tuple of sorted key-value pairs)
     events = tuple(sorted(events.items())) if events else None
@@ -64,7 +68,10 @@ def load_raw_data(data_dir, mouse, events=None):
         return merged.to_dict()
     return None
 
-def layout(id=None, **other_unknown_query_strings):
+def layout(
+        id=None, 
+        **other_unknown_query_strings
+        ):
     mouse = id
     return html.Div([
         html.Div([
@@ -100,6 +107,52 @@ def layout(id=None, **other_unknown_query_strings):
                     style={'margin-left': '10px'}
                 ),
             ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
+            # Axis Step Settings
+                 html.Div([
+                     html.Label("X-Axis Step:"),
+                     dcc.Input(
+                         id="x-axis-step",
+                         type="number",
+                         placeholder="X-Axis Step",
+                         value=None,
+                         style={'margin-left': '10px', 'margin-right': '20px'}
+                     ),
+                     html.Label("Y-Axis Step:"),
+                     dcc.Input(
+                         id="y-axis-step",
+                         type="number",
+                         placeholder="Y-Axis Step",
+                         value=None,
+                         style={'margin-left': '10px'}
+                     )
+                 ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
+                 # Graph and Axis Titles
+                 html.Div([
+                     html.Label("Graph Title:"),
+                     dcc.Input(
+                         id="graph-title",
+                         type="text",
+                         placeholder="Enter graph title",
+                         value=None,
+                         style={'margin-left': '10px', 'margin-right': '20px'}
+                     ),
+                     html.Label("X-Axis Title:"),
+                     dcc.Input(
+                         id="x-axis-title",
+                         type="text",
+                         placeholder="Enter x-axis title",
+                         value=None,
+                         style={'margin-left': '10px', 'margin-right': '20px'}
+                     ),
+                     html.Label("Y-Axis Title:"),
+                     dcc.Input(
+                         id="y-axis-title",
+                         type="text",
+                         placeholder="Enter y-axis title",
+                         value=None,
+                         style={'margin-left': '10px'}
+                     )
+                 ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'})
         ], style={
             'display': 'flex', 
             'flex-direction': 'row', 
@@ -119,7 +172,9 @@ def layout(id=None, **other_unknown_query_strings):
     Output('event-selection-mouse', 'options'),
     [Input('event-store', 'data')]
 )
-def populate_event_selection_options(event_store):
+def populate_event_selection_options(
+    event_store
+    ):
     if event_store:
         # Convert event-store keys to dropdown options
         options = list(event_store.keys())
@@ -134,7 +189,12 @@ def populate_event_selection_options(event_store):
      Input('selected-folder', 'data'), 
      Input('event-store', 'data')]
 )
-def load_mouse_data(data, pathname, folder, events):
+def load_mouse_data(
+    data, 
+    pathname, 
+    folder, 
+    events
+    ):
     mouse = pathname.split('/')[-1]
     if not data:
         data = {}
@@ -162,17 +222,34 @@ def load_mouse_data(data, pathname, folder, events):
      Input('seconds-after', 'value'),
      Input('url', 'pathname'),
      Input('boolean-switch', 'on'),
-     Input('event-selection-mouse', 'value')],
+     Input('event-selection-mouse', 'value'),
+     Input('x-axis-step', 'value'),
+     Input('y-axis-step', 'value'),
+     Input('graph-title', 'value'),
+     Input('x-axis-title', 'value'),
+     Input('y-axis-title', 'value')],
 )
 
-def update_graph(mouse_data, seconds_before, seconds_after, pathname, on, selected_event):
+def update_graph(
+     mouse_data, 
+     seconds_before, 
+     seconds_after, 
+     pathname, 
+     on, 
+     selected_event,
+     x_axis_step,
+     y_axis_step,
+     graph_title,
+     x_axis_title,
+     y_axis_title
+    ):
+
     if not mouse_data:
             return "No data available."
     print('selected_event:', selected_event)
     mouse = pathname.split('/')[-1]
     mouse_data = mouse_data[mouse]
     merged = MergeDatasets.from_dict(mouse_data)
-    mergeddataset = merged.df
     fps = merged.fps
     
     # Precompute intervals and epochs
@@ -206,6 +283,28 @@ def update_graph(mouse_data, seconds_before, seconds_after, pathname, on, select
 
         acc_full, acc_interval_on, acc_interval_off, acc_change = acc_future.result()
         adn_full, adn_interval_on, adn_interval_off, adn_change = adn_future.result()
+
+    # Update axis steps and layout titles for all figures (not x axis for bar plots)
+    figure_list = [
+        acc_full, acc_interval_on, acc_interval_off, 
+        adn_full, adn_interval_on, adn_interval_off, 
+    ]
+    for fig in figure_list:
+        if x_axis_step:
+            fig.update_xaxes(dtick=x_axis_step)
+    
+    figure_list = figure_list + [acc_change, adn_change]
+    
+    for fig in figure_list:
+        if y_axis_step:
+            fig.update_yaxes(dtick=y_axis_step)
+        if graph_title:
+            fig.update_layout(title=graph_title)
+        if x_axis_title:
+            fig.update_layout(xaxis_title=x_axis_title)
+        if y_axis_title:    
+            fig.update_layout(yaxis_title=y_axis_title)
+    
     
     content = html.Div([
         # ACC Section
@@ -307,7 +406,11 @@ def update_graph(mouse_data, seconds_before, seconds_after, pathname, on, select
      Input('url', 'pathname')],
     [State('group-dropdown', 'value')]
 )
-def manage_mouse_assignment(new_value, pathname, current_value):
+def manage_mouse_assignment(
+     new_value, 
+     pathname, 
+     current_value
+    ):
     ctx = dash.callback_context
     if not ctx.triggered:
         # On initial load, use the stored assignment.

@@ -104,7 +104,7 @@ layout = html.Div([
                  type="number",
                  placeholder="X-Axis Step",
                  min=0.05,
-                 value=1,
+                 value=None,
                  style={'margin-left': '10px', 'margin-right': '20px'}
              ),
              html.Label("Y-Axis Step:"),
@@ -113,7 +113,7 @@ layout = html.Div([
                  type="number",
                  placeholder="Y-Axis Step",
                  min=0.05,
-                 value=1,
+                 value=None,
                  style={'margin-left': '10px'}
              )
          ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'})
@@ -324,8 +324,10 @@ def update_graph(mouse_data,
     
     # Update axis tick step for all figures
     for fig in [acc_on_fig, acc_off_fig, adn_on_fig, adn_off_fig, acc_on_change, acc_off_change, adn_on_change, adn_off_change]:
-        fig.update_xaxes(dtick=x_axis_step)
-        fig.update_yaxes(dtick=y_axis_step)
+        if x_axis_step:
+            fig.update_xaxes(dtick=x_axis_step)
+        if y_axis_step:
+            fig.update_yaxes(dtick=y_axis_step)
 
     content = html.Div([
         html.Div([
