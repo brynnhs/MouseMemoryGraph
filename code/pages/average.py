@@ -29,7 +29,7 @@ color_map = {
     'Control': '#FFFFBA'
 }
 
-def load_raw_data(data_dir, mouse):
+def load_raw_data(data_dir, mouse, events):
     """Load raw merged data for all mice and store in mouse_data."""
     mouse_data = {}
     photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
@@ -47,6 +47,9 @@ def load_raw_data(data_dir, mouse):
         behavior = BehaviorDataset(behavior_path)
         photometry.normalize_signal()
         merged = MergeDatasets(photometry, behavior)
+        if events:
+            for name, intervals in events.items():
+                merged.add_event(name, intervals)
         return merged.to_dict()
     print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
@@ -55,6 +58,7 @@ condition_assignments = load_assignments()
 
 # Load the GroupSelection component
 GroupSelection = load_react_component(app, "components", "GroupSelection.js")
+EventRender = load_react_component(app, "components", "EventRender.js")
 
 layout = html.Div([
     dcc.Store(id='stored-figures', data={}),
@@ -71,6 +75,7 @@ layout = html.Div([
             daq.BooleanSwitch(id='boolean-switch', on=True, color='lightblue'),
             html.Div(id='boolean-switch-output')
         ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
+        html.Div([EventRender(id='event-selection-average', value='freezing')], style={'margin-bottom': '10px'}),
         html.Div([
             html.Label("Seconds Before Event:"),
             dcc.Input(
@@ -91,6 +96,27 @@ layout = html.Div([
                 style={'margin-left': '10px'}
             ),
         ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
+        # New: Axis Step Settings
+         html.Div([
+             html.Label("X-Axis Step:"),
+             dcc.Input(
+                 id="x-axis-step",
+                 type="number",
+                 placeholder="X-Axis Step",
+                 min=0.05,
+                 value=None,
+                 style={'margin-left': '10px', 'margin-right': '20px'}
+             ),
+             html.Label("Y-Axis Step:"),
+             dcc.Input(
+                 id="y-axis-step",
+                 type="number",
+                 placeholder="Y-Axis Step",
+                 min=0.05,
+                 value=None,
+                 style={'margin-left': '10px'}
+             )
+         ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'})
     ], style={
         'display': 'flex', 
         'flex-direction': 'row', 
@@ -129,25 +155,41 @@ layout = html.Div([
 ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'}),
 ])
 
+# Callback to populate EventSelection options from event-store
+@app.callback(
+    Output('event-selection-average', 'options'),
+    [Input('event-store', 'data')]
+)
+def populate_event_selection_options(event_store):
+    if event_store:
+        # Convert event-store keys to dropdown options
+        options = list(event_store.keys())
+    else:
+        options = []
+    return [{'label': key, 'value': key, 'text': key} for key in options]
+
 @callback(
     Output('mouse-data-store', 'data', allow_duplicate=True),
-    [Input('mouse-data-store', 'data'), Input('url', 'pathname'), Input('selected-folder', 'data'), Input('app-state', 'data')],
+    [Input('mouse-data-store', 'data'), 
+     Input('url', 'pathname'), 
+     Input('selected-folder', 'data'), 
+     Input('app-state', 'data'), 
+     Input('event-store', 'data')],
     prevent_initial_call=True
 )
-def load_mouse_data(data, pathname, folder, app_state):
-    mouse_data = app_state.get('mouse_data', {})
-    # filter out 'average' and '/' from mouse_data
-    for mouse in mouse_data:
-        if not data:
-            data = {}
 
-        if mouse not in data.keys():
-            print('load_mouse_data', pathname, folder)
-            
-            mouse_data = load_raw_data(folder, mouse)
+def load_mouse_data(data, pathname, folder, app_state, events):
+    mouse_data = app_state.get('mouse_data', {})
+    if not data:
+        data = {}
+
+    for mouse in mouse_data:
+        # Check if data[mouse] is None or if events do not match
+        if mouse not in data.keys() or not data[mouse] or events != data[mouse].get('events', None):
+            mouse_data = load_raw_data(folder, mouse, events)
             data[mouse] = mouse_data
         else:
-            print('Found mouse data in store:', mouse)
+            print('')
     return data
 
 @callback(
@@ -203,11 +245,22 @@ def update_trace_dropdown(selected_plot, stored_figures):
     [Input('mouse-data-store', 'data'),
      Input('seconds-before', 'value'),
      Input('seconds-after', 'value'),
+     Input('x-axis-step', 'value'),
+     Input('y-axis-step', 'value'),
      Input('group-selection', 'value'),
      Input('boolean-switch', 'on'),
-     Input('color-overrides', 'data')],
+     Input('color-overrides', 'data'),
+     Input('event-selection-average', 'value')],
 )
-def update_graph(mouse_data, seconds_before, seconds_after, selected_groups, on, color_overrides):
+def update_graph(mouse_data, 
+                 seconds_before, 
+                 seconds_after, 
+                 x_axis_step,
+                 y_axis_step,
+                 selected_groups, 
+                 on, 
+                 color_overrides, 
+                 selected_event):
 
     # Default to all groups if none selected.
     if not selected_groups:
@@ -235,7 +288,9 @@ def update_graph(mouse_data, seconds_before, seconds_after, selected_groups, on,
         if mouse_group not in selected_groups:
             continue
 
-        intervals = merged.get_freezing_intervals()
+        # Precompute intervals and epochs
+        intervals = merged.get_freezing_intervals() if selected_event == 'freezing' else merged.get_freezing_intervals(0, selected_event)
+
         if fps is None:
             fps = merged.fps
         acc_epochs_on = merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, type='on', filter=on)
@@ -267,6 +322,13 @@ def update_graph(mouse_data, seconds_before, seconds_after, selected_groups, on,
     acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_overrides)
     adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_overrides)
     
+    # Update axis tick step for all figures
+    for fig in [acc_on_fig, acc_off_fig, adn_on_fig, adn_off_fig, acc_on_change, acc_off_change, adn_on_change, adn_off_change]:
+        if x_axis_step:
+            fig.update_xaxes(dtick=x_axis_step)
+        if y_axis_step:
+            fig.update_yaxes(dtick=y_axis_step)
+
     content = html.Div([
         html.Div([
             html.Div([

@@ -205,7 +205,7 @@ class MergeDatasets():
         photometry (PhotometryDataset): Photometry dataset.
         behavior (BehaviorDataset): Behavior dataset.
     """
-    def __init__(self, photometry, behavior):
+    def __init__(self, photometry, behavior, events=['freezing']):
         # check that 'Time(s)' is in both dataframes with assert
         assert 'Time(s)' in photometry.df.columns, "Time(s) not in photometry dataframe"
         assert 'Time(s)' in behavior.df.columns, "Time(s) not in behavior dataframe"
@@ -219,18 +219,19 @@ class MergeDatasets():
 
         self.df = pd.merge(photometry.df, behavior.df, on="Time(s)", how="outer")
         self.fps = min(photometry.fps, behavior.fps)
+        self.events = events
         # drop rows with NaN values
         self.df = self.df.dropna()
         # Optionally filter out rows where DI/O-1 is 0 (currently commented out)
         # self.df = self.df[self.df['DI/O-1'] != 0]
         self.df = self.df.reset_index(drop=True)
 
-    def get_freezing_intervals(self, merge_range=1):
+    def get_freezing_intervals(self, merge_range=1, event='freezing'):
         """
         Get freezing intervals. Merge intervals that are within merge_range seconds of each other.
         """
-        onsets = self.df[self.df['freezing'].diff() == 1].index
-        offsets = self.df[self.df['freezing'].diff() == -1].index
+        onsets = self.df[self.df[event].diff() == 1].index
+        offsets = self.df[self.df[event].diff() == -1].index
         intervals = list(zip(onsets, offsets))
 
         # merge intervals that are within merge_range seconds of each other
@@ -322,13 +323,29 @@ class MergeDatasets():
 
         return epoch_avg
     
+    def add_event(self, name, intervals):
+        """
+        Add an event to the dataset.
+         - intervals are in seconds
+        """
+        self.df[name] = 0
+        self.events.append(name)
+        try:
+            for interval in intervals:
+                start = interval['start']
+                end = interval['end']
+                self.df.loc[(self.df['Time(s)'] >= start) & (self.df['Time(s)'] <= end), name] = 1
+        except:
+            pass
+    
     def to_dict(self):
         """
         Convert the merged dataset to a dictionary format.
         """
         return {
             'df': self.df.to_dict(),
-            'fps': self.fps
+            'fps': self.fps,
+            'events': self.events
         }
 
     @classmethod
@@ -338,14 +355,16 @@ class MergeDatasets():
         """
         instance = cls.__new__(cls)
         instance.df = pd.DataFrame.from_dict(data_dict['df'])
-        instance.df['freezing'] = instance.df['freezing'].astype(int)
+        instance.events = data_dict['events']
+        for event in data_dict['events']:
+            instance.df[event] = instance.df[event].astype(int)
         # make index to integer
         instance.df.index = instance.df.index.astype(int)
 
         # loop through all other columns (except 'freezing' and index) and convert to float
         for col in instance.df.columns:
             try:
-                if col != 'freezing' and col != 'index':
+                if col not in instance.events and col != 'index':
                     instance.df[col] = instance.df[col].astype(float)
             except:
                 pass
