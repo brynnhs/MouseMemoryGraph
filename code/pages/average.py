@@ -17,17 +17,17 @@ from utils import load_assignments
 dash.register_page(__name__, path='/average')
 app = dash.get_app()
 
-# Determine the base path
-if getattr(sys, 'frozen', False):
-    base_path = sys._MEIPASS
-else:
-    base_path = os.path.dirname(os.path.abspath(__file__))
-
 color_map = {
     'Recent': '#FFB3BA',
     'Remote': '#FFDFBA',
     'Control': '#FFFFBA'
 }
+
+# Determine the base path
+if getattr(sys, 'frozen', False):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.dirname(os.path.abspath(__file__))
 
 def load_raw_data(data_dir, mouse, events):
     """Load raw merged data for all mice and store in mouse_data."""
@@ -64,7 +64,7 @@ layout = html.Div([
     dcc.Store(id='color-overrides', data={}),
     # Include the group selection dropdown (MultiSelect)
     html.Div([
-        GroupSelection(id='group-selection', value=['Recent', 'Remote'])  # Initially, no groups selected
+        GroupSelection(id='group-selection', value=[])  # Initially, no groups selected
     ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
     
     # Numeric inputs for the epoch window
@@ -167,6 +167,21 @@ def populate_event_selection_options(event_store):
         options = []
     return [{'label': key, 'value': key, 'text': key} for key in options]
 
+# Callback to populate GroupDropdown options from group-store
+@app.callback(
+    Output('group-selection', 'options'),
+    [Input('group-store', 'data')]
+)
+def populate_group_dropdown_options(
+    group_store
+    ):
+    if group_store:
+        # Convert group-store keys to dropdown options
+        options = list(group_store.values())
+    else:
+        options = []
+    return [{'key': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
+
 @callback(
     Output('mouse-data-store', 'data', allow_duplicate=True),
     [Input('mouse-data-store', 'data'), 
@@ -242,6 +257,7 @@ def update_trace_dropdown(selected_plot, stored_figures):
     [Output('tab-content', 'children'),
     Output('stored-figures', 'data')],
     [Input('mouse-data-store', 'data'),
+     Input('group-store', 'data'),
      Input('seconds-before', 'value'),
      Input('seconds-after', 'value'),
      Input('x-axis-step', 'value'),
@@ -252,6 +268,7 @@ def update_trace_dropdown(selected_plot, stored_figures):
      Input('event-selection-average', 'value')],
 )
 def update_graph(mouse_data, 
+                 assignments,
                  seconds_before, 
                  seconds_after, 
                  x_axis_step,
@@ -261,15 +278,19 @@ def update_graph(mouse_data,
                  color_overrides, 
                  selected_event):
 
+    print(assignments)
+    for mouse, group in assignments.items():
+        if group['group'] not in color_map.keys():
+            color_map[group['group']] = group['color']
+    print(color_map)
+    assignments = {mouse: group['group'] for mouse, group in assignments.items()}
+
     # Default to all groups if none selected.
     if not selected_groups:
         selected_groups = []
 
     if color_overrides is None:
         color_overrides = {}
-
-    # Reload condition assignments mapping: mouse id -> group
-    assignments = load_assignments()
 
     # Initialize dictionaries for each sensor and epoch type.
     acc_on_dict, acc_off_dict, adn_on_dict, adn_off_dict = {}, {}, {}, {}
@@ -318,8 +339,8 @@ def update_graph(mouse_data,
         return html.Div("No data available for the selected condition groups."), {}
     
     # Generate the average plots using dictionaries.
-    acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_overrides)
-    adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_overrides)
+    acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_map, color_overrides)
+    adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_map, color_overrides)
     
     # Update axis tick step for all figures
     for fig in [acc_on_fig, acc_off_fig, adn_on_fig, adn_off_fig, acc_on_change, acc_off_change, adn_on_change, adn_off_change]:

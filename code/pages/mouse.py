@@ -19,9 +19,6 @@ from utils import load_assignments, save_assignments
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 
-# Global container for mouse condition assignments
-mouse_assignments = load_assignments()
-
 dash.register_page(__name__, path_template='/mouse/<id>')
 app = dash.get_app()
 
@@ -181,6 +178,21 @@ def populate_event_selection_options(
     else:
         options = []
     return [{'label': key, 'value': key, 'text': key} for key in options]
+
+# Callback to populate GroupDropdown options from group-store
+@app.callback(
+    Output('group-dropdown', 'options'),
+    [Input('group-store', 'data')]
+)
+def populate_group_dropdown_options(
+    group_store
+    ):
+    if group_store:
+        # Convert group-store keys to dropdown options
+        options = list(group_store.values())
+    else:
+        options = []
+    return [{'label': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
 
 @callback(
     Output('mouse-data-store', 'data'),
@@ -419,33 +431,48 @@ def update_graph(
 
 # Combined callback for handling both dropdown changes and URL updates.
 @app.callback(
-    Output('group-dropdown', 'value'),
-    [Input('group-dropdown', 'value'),
+    [Output('group-dropdown', 'value'),
+     Output('group-store', 'data')],
+    [Input('group-store', 'data'),
+     Input('group-dropdown', 'value'),
+     Input('group-dropdown', 'currentColor'),
      Input('url', 'pathname')],
     [State('group-dropdown', 'value')]
 )
 def manage_mouse_assignment(
+     mouse_assignments,
      new_value, 
+     color,
      pathname, 
      current_value
     ):
+    print(color)
     ctx = dash.callback_context
     if not ctx.triggered:
         # On initial load, use the stored assignment.
         mouse_id = pathname.split('/')[-1]
-        return mouse_assignments.get(mouse_id, 'default_group')
+        stored_assignment = mouse_assignments.get(mouse_id)
+        if stored_assignment:
+            group = stored_assignment.get('group', 'default_group')
+        else:
+            group = 'default_group'
+        return group, mouse_assignments
     triggered_id = ctx.triggered[0]['prop_id']
     if triggered_id.startswith('group-dropdown'):
         # User changed the dropdown value.
         mouse_id = pathname.split('/')[-1]
-        mouse_assignments[mouse_id] = new_value
-        save_assignments(mouse_assignments)
-        return new_value
+        mouse_assignments[mouse_id] = {'group': new_value, 'color': color}
+        return new_value, mouse_assignments
     elif triggered_id.startswith('url'):
         # URL changed; load the saved assignment.
         mouse_id = pathname.split('/')[-1]
-        return mouse_assignments.get(mouse_id, 'default_group')
-    return current_value
+        stored_assignment = mouse_assignments.get(mouse_id)
+        if stored_assignment:
+            group = stored_assignment.get('group', 'default_group')
+        else:
+            group = 'default_group'
+        return group, mouse_assignments
+    return current_value, mouse_assignments
 
 @app.callback(
     Output('acc-trace-dropdown', 'options'),
@@ -512,8 +539,10 @@ def update_adn_trace_options(
     fig_change,
     fig_separated
 ):
+    shapes = None
     if selected_graph == 'full':
         fig = fig_full
+        shapes = fig.get('layout', {}).get('shapes', [])
     elif selected_graph == 'interval_on':
         fig = fig_interval_on
     elif selected_graph == 'interval_off':
@@ -532,7 +561,12 @@ def update_adn_trace_options(
     for i, trace in enumerate(fig['data']):
         trace_name = trace.get('name', f"Trace {i+1}")
         options.append({'label': trace_name, 'value': i})
-    print(options)
+    #if shapes:
+    #    # get all unique names for shapes
+    #    shape_names = set([shape.get('name', 'None') for shape in shapes])
+    #    for i, shape_name in enumerate(shape_names):
+    #        options.append({'label': f"{shape_name}", 'value': shape_name})
+
     return options
 
 
@@ -662,11 +696,18 @@ def update_adn_color(color_value, selected_graph, selected_trace,
     new_color = f"rgba({r},{g},{b},{a})"
 
     if selected_graph == 'full':
-        if fig_full and 'data' in fig_full and len(fig_full['data']) > selected_trace:
-            if 'line' in fig_full['data'][selected_trace]:
-                fig_full['data'][selected_trace]['line']['color'] = new_color
-            else:
-                fig_full['data'][selected_trace]['marker']['color'] = new_color
+        if type(selected_trace) == str:
+            if fig_full and 'layout' in fig_full and 'shapes' in fig_full['layout']:
+                for shape in fig_full['layout']['shapes']:
+                    if shape.get('name') == selected_trace:
+                        shape['line']['color'] = new_color
+                        shape['fillcolor'] = new_color
+        else:
+            if fig_full and 'data' in fig_full and len(fig_full['data']) > selected_trace:
+                if 'line' in fig_full['data'][selected_trace]:
+                    fig_full['data'][selected_trace]['line']['color'] = new_color
+                else:
+                    fig_full['data'][selected_trace]['marker']['color'] = new_color
         return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
 
     elif selected_graph == 'interval_on':

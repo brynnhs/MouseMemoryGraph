@@ -78,7 +78,8 @@ app.layout = html.Div([
     dcc.Store(id='app-state', storage_type='session'),
     dcc.Store(id='selected-folder', storage_type='session'),
     dcc.Store(id='mouse-data-store', storage_type='session'),
-    dcc.Store(id='event-store', data={}),
+    dcc.Store(id='event-store', data={}, storage_type='session'),
+    dcc.Store(id='group-store', data={}, storage_type='session'),
 ])
 
 app.index_string = '''

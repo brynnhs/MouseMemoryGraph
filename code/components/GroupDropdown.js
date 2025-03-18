@@ -11,17 +11,24 @@ const initialOptions = [
 ];
 
 export default function GroupDropdown(props) {
-    const { id, value, setProps, setOptions: setDashOptions } = props;
-    const [options, setOptions] = React.useState(initialOptions);
+    const { id, value, setProps, setOptions: setDashOptions, currentColor, setCurrentColor, additionalOptions = [] } = props;
+    const [options, setOptions] = React.useState([...initialOptions, ...additionalOptions]);
     const [newGroupName, setNewGroupName] = React.useState('');
     const [showTextbox, setShowTextbox] = React.useState(false);
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
+
+    React.useEffect(() => {
+        // Update options if additionalOptions prop changes
+        setOptions([...initialOptions, ...additionalOptions]);
+    }, [additionalOptions]);
 
     function onChange(optionValue) {
         if (optionValue === 'new') {
             setShowTextbox(true);
         } else {
-            setProps({ value: optionValue });
+            const selectedOption = options.find(option => option.value === optionValue);
+            setProps({ value: optionValue, currentColor: selectedOption?.color || pastelColors[0] }); // Update currentColor externally
+            setCurrentColor(selectedOption?.color || pastelColors[0]); // Update currentColor internally
             setDropdownOpen(false);
         }
     }
@@ -41,7 +48,8 @@ export default function GroupDropdown(props) {
         setOptions(newOptions);
         setNewGroupName('');
         setShowTextbox(false);
-        setProps({ value: newGroup.value });
+        setProps({ value: newGroup.value, currentColor: newGroup.color }); // Update currentColor externally
+        setCurrentColor(newGroup.color); // Update currentColor internally
         setDropdownOpen(false);
         setDashOptions(newOptions); // Update Dash options
     }
@@ -123,5 +131,7 @@ export default function GroupDropdown(props) {
 }
 
 GroupDropdown.defaultProps = {
-    value: 'Recent'
+    value: 'Recent',
+    currentColor: '#FFB3BA', // Default color
+    additionalOptions: [] // Default to an empty array
 };
