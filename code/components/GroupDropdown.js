@@ -19,7 +19,12 @@ export default function GroupDropdown(props) {
 
     // Update internal options state whenever the Dash-provided options change
     React.useEffect(() => {
-        setOptions([...initialOptions, ...dashOptions]);
+        const mergedOptions = [...initialOptions, ...dashOptions];
+        const uniqueOptions = mergedOptions.filter(
+            (option, index, self) =>
+                index === self.findIndex((o) => o.value === option.value)
+        );
+        setOptions(uniqueOptions);
     }, [dashOptions]);
 
     function onChange(optionValue) {
