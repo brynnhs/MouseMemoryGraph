@@ -32,8 +32,9 @@ else:
 def load_raw_data(data_dir, mouse, events):
     """Load raw merged data for all mice and store in mouse_data."""
     mouse_data = {}
-    photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
-    behavior_path = os.path.join(data_dir, mouse, "Behavior.csv")
+    photometry_path = os.path.join(data_dir, mouse, f"{mouse.split('_')[0]}_recording.csv.csv")
+    behavior_path = os.path.join(data_dir, mouse, f"{mouse.split('_')[0]}_behavior.csv.csv")
+    print(photometry_path)
     if os.path.exists(photometry_path) and os.path.exists(behavior_path):
         photometry = PhotometryDataset(
             photometry_path,
@@ -48,8 +49,12 @@ def load_raw_data(data_dir, mouse, events):
         photometry.normalize_signal()
         merged = MergeDatasets(photometry, behavior)
         if events:
+            # Ensure events are added only once
+            added_events = set()
             for name, intervals in events.items():
-                merged.add_event(name, intervals)
+                if name not in added_events:
+                    merged.add_event(name, intervals)
+                    added_events.add(name)
         return merged.to_dict()
 
 # Load condition assignments mapping: mouse id -> condition group
@@ -184,28 +189,36 @@ def populate_group_dropdown_options(
     return [{'key': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
 
 @callback(
-    Output('mouse-data-store', 'data', allow_duplicate=True),
+    Output('mouse-data-store', 'data'),
     [Input('mouse-data-store', 'data'), 
      Input('url', 'pathname'), 
      Input('selected-folder', 'data'), 
-     Input('app-state', 'data'), 
+     Input('app-state', 'data'),
      Input('event-store', 'data')],
-    prevent_initial_call=True
 )
 
 def load_mouse_data(data, pathname, folder, app_state, events):
-    mouse_data = app_state.get('mouse_data', {})
     if not data:
         data = {}
+    # Ensure the callback only runs for the `/mouse/<id>` path
+    mouse_data = app_state.get('mouse_data', {})
 
     for mouse in mouse_data:
         # Check if data[mouse] is None or if events do not match
-        if mouse not in data.keys() or not data[mouse] or events != data[mouse].get('events', None):
+        if mouse not in data.keys() or not data[mouse]: #or events != data[mouse].get('events', None):
+            mouse_data = load_raw_data(folder, mouse, events)
+            data[mouse] = mouse_data
+        elif list(events.keys()) != [e for e in data[mouse].get('events', None) if e != 'freezing']:
+            print('Events do not match')
+            print(list(events.keys()))
+            print(data[mouse].get('events', None))
+            print([e for e in data[mouse].get('events', None) if e != 'freezing'])
             mouse_data = load_raw_data(folder, mouse, events)
             data[mouse] = mouse_data
         else:
-            print('')
+            pass
     return data
+
 
 @callback(
     Output('tab-content', 'children', allow_duplicate=True),

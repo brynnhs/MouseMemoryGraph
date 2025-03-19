@@ -44,8 +44,8 @@ def load_raw_data(
     # Convert events dictionary to a hashable type (tuple of sorted key-value pairs)
     events = tuple(sorted(events.items())) if events else None
 
-    photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
-    behavior_path = os.path.join(data_dir, mouse, "Behavior.csv")
+    photometry_path = os.path.join(data_dir, mouse, f"{mouse}_recording.csv")
+    behavior_path = os.path.join(data_dir, mouse, f"{mouse}_behavior.csv")
     if os.path.exists(photometry_path) and os.path.exists(behavior_path):
         photometry = PhotometryDataset(
             photometry_path,
@@ -195,22 +195,28 @@ def populate_group_dropdown_options(
         options = []
     return [{'label': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
 
-@callback(
-    Output('mouse-data-store', 'data'),
-    [Input('mouse-data-store', 'data'), 
-     Input('url', 'pathname'), 
-     Input('selected-folder', 'data'), 
-     Input('event-store', 'data')]
-)
+#@callback(
+#    Output('mouse-data-store', 'data'),
+#    [Input('mouse-data-store', 'data'), 
+#     Input('url', 'pathname'), 
+#     Input('selected-folder', 'data'), 
+#     Input('event-store', 'data')]
+#)
 def load_mouse_data(
     data, 
     pathname, 
     folder, 
     events
     ):
-    mouse = pathname.split('/')[-1]
     if not data:
         data = {}
+     # Ensure the callback only runs for the `/mouse/<id>` path
+    print('pathname', pathname)
+    if not pathname.startswith('/mouse/'):
+        print('Not on mouse')
+        return data  # Do nothing if not on a mouse page
+    
+    mouse = pathname.split('/')[-1]
 
     # Safely convert events to a hashable type
     try:

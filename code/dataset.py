@@ -41,6 +41,7 @@ class PhotometryDataset():
         self.fps = fps
 
         self.df = self.bin_data(self.df, column_map, bin_size=self.bin_size)
+        print(self.df.head())
 
         # Apply low-pass filter to each signal
         for col in column_map.values():
@@ -329,7 +330,8 @@ class MergeDatasets():
          - intervals are in seconds
         """
         self.df[name] = 0
-        self.events.append(name)
+        if name not in self.events:
+            self.events.append(name)
         try:
             for interval in intervals:
                 start = interval['start']

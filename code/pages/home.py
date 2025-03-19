@@ -12,6 +12,27 @@ EventSelection = load_react_component(app, "components", "EventSelection.js")
 
 layout = html.Div([
     dcc.Store(id='selected-event', data=None),  # Store to hold the currently selected event
+    
+    html.Div([
+        html.H1("Welcome to the Mouse Memory Graph App"),
+        html.P("This is the homepage of the app. Use the dropdown menu to navigate to different mouse data pages."),
+        html.H2("Expected Folder Structure"),
+        html.Pre("""
+        data/
+        ├── mouse1/
+        │   ├── mouse1.csv
+        │   └── Behavior.csv
+        ├── mouse2/
+        │   ├── mouse2.csv
+        │   └── Behavior.csv
+        └── ...
+        """)
+    ], style={
+        'backgroundColor': 'white',
+        'borderRadius': '10px',
+        'padding': '10px',
+        'margin': '10px 0'
+    }),
     html.Div([
         dcc.Input(
             id='input-path',
@@ -30,7 +51,7 @@ layout = html.Div([
             }
         ),
         html.Button(
-            'Submit',
+            'Process',
             id='submit-path',
             n_clicks=0,
             style={
@@ -54,26 +75,6 @@ layout = html.Div([
         'textAlign': 'center',
         'margin': '10px 0',
         'backgroundColor': 'white'
-    }),
-    html.Div([
-        html.H1("Welcome to the Mouse Memory Graph App"),
-        html.P("This is the homepage of the app. Use the dropdown menu to navigate to different mouse data pages."),
-        html.H2("Expected Folder Structure"),
-        html.Pre("""
-        data/
-        ├── mouse1/
-        │   ├── mouse1.csv
-        │   └── Behavior.csv
-        ├── mouse2/
-        │   ├── mouse2.csv
-        │   └── Behavior.csv
-        └── ...
-        """)
-    ], style={
-        'backgroundColor': 'white',
-        'borderRadius': '10px',
-        'padding': '10px',
-        'margin': '10px 0'
     }),
     html.Div([
         EventSelection(id='event-selection'),
