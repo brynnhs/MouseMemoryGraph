@@ -76,7 +76,7 @@ def layout(
         html.H2(f'Mouse {mouse}'),
         html.Div([
             html.Div([
-                GroupDropdown(id='group-dropdown', value=1)
+                GroupDropdown(id='group-dropdown', value='000000')
             ], style={'margin-bottom': '10px'}),
             html.Div([
                 html.Label("Filter out epochs:"),
@@ -431,48 +431,40 @@ def update_graph(
 
 # Combined callback for handling both dropdown changes and URL updates.
 @app.callback(
-    [Output('group-dropdown', 'value'),
-     Output('group-store', 'data')],
+    Output('group-dropdown', 'value'),
+    [Input('group-store', 'data'),
+     Input('url', 'pathname')]
+)
+def manage_mouse_assignment(mouse_assignments, pathname):
+    """
+    Populate the dropdown with the stored assignment for the mouse when the page loads.
+    """
+    if not mouse_assignments:
+        return None  # No assignment exists, so nothing is selected
+    mouse_id = pathname.split('/')[-1]
+    stored_assignment = mouse_assignments.get(mouse_id, {})
+    print('stored_assignment', stored_assignment)
+    return stored_assignment.get('group')  # Return the group if it exists, otherwise None
+
+@app.callback(
+    Output('group-store', 'data'),
     [Input('group-store', 'data'),
      Input('group-dropdown', 'value'),
      Input('group-dropdown', 'currentColor'),
      Input('url', 'pathname')],
-    [State('group-dropdown', 'value')]
 )
-def manage_mouse_assignment(
-     mouse_assignments,
-     new_value, 
-     color,
-     pathname, 
-     current_value
-    ):
-    print(color)
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        # On initial load, use the stored assignment.
-        mouse_id = pathname.split('/')[-1]
-        stored_assignment = mouse_assignments.get(mouse_id)
-        if stored_assignment:
-            group = stored_assignment.get('group', 'default_group')
-        else:
-            group = 'default_group'
-        return group, mouse_assignments
-    triggered_id = ctx.triggered[0]['prop_id']
-    if triggered_id.startswith('group-dropdown'):
-        # User changed the dropdown value.
-        mouse_id = pathname.split('/')[-1]
+def update_mouse_assignment(mouse_assignments, new_value, color, pathname):
+    """
+    Update the group-store with the selected group and color for the current mouse.
+    """
+    mouse_id = pathname.split('/')[-1]
+    if not mouse_assignments:
+        mouse_assignments = {}
+    if new_value and color:  # Only update if a new value is selected
         mouse_assignments[mouse_id] = {'group': new_value, 'color': color}
-        return new_value, mouse_assignments
-    elif triggered_id.startswith('url'):
-        # URL changed; load the saved assignment.
-        mouse_id = pathname.split('/')[-1]
-        stored_assignment = mouse_assignments.get(mouse_id)
-        if stored_assignment:
-            group = stored_assignment.get('group', 'default_group')
-        else:
-            group = 'default_group'
-        return group, mouse_assignments
-    return current_value, mouse_assignments
+
+    print(mouse_assignments)
+    return mouse_assignments
 
 @app.callback(
     Output('acc-trace-dropdown', 'options'),
