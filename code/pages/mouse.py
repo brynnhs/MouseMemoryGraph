@@ -158,7 +158,8 @@ def layout(
             'margin-bottom': '20px',
             'background-color': 'white',
             'border-radius': '10px',
-            'padding': '20px'
+            'padding': '20px',
+            'flex-wrap': 'wrap'
         }),
         ], style={'align-items': 'center', 'justify-content': 'center'}),
         html.Div(id='mouse-content')

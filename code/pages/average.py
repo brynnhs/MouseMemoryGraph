@@ -124,7 +124,8 @@ layout = html.Div([
         'margin-bottom': '20px',
         'background-color': 'white',
         'border-radius': '10px',
-        'padding': '20px'
+        'padding': '20px',
+        'flex-wrap': 'wrap'
     }),
     html.Div(id='tab-content'),
     html.Div([
