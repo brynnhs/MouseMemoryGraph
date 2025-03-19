@@ -11,16 +11,16 @@ const initialOptions = [
 ];
 
 export default function GroupDropdown(props) {
-    const { id, value, setProps, setOptions: setDashOptions, currentColor, setCurrentColor, additionalOptions = [] } = props;
-    const [options, setOptions] = React.useState([...initialOptions, ...additionalOptions]);
+    const { id, value, setProps, options: dashOptions = [], currentColor, setCurrentColor } = props;
+    const [options, setOptions] = React.useState([...initialOptions, ...dashOptions]);
     const [newGroupName, setNewGroupName] = React.useState('');
     const [showTextbox, setShowTextbox] = React.useState(false);
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
 
+    // Update internal options state whenever the Dash-provided options change
     React.useEffect(() => {
-        // Update options if additionalOptions prop changes
-        setOptions([...initialOptions, ...additionalOptions]);
-    }, [additionalOptions]);
+        setOptions([...initialOptions, ...dashOptions]);
+    }, [dashOptions]);
 
     function onChange(optionValue) {
         if (optionValue === 'new') {
@@ -51,7 +51,6 @@ export default function GroupDropdown(props) {
         setProps({ value: newGroup.value, currentColor: newGroup.color }); // Update currentColor externally
         setCurrentColor(newGroup.color); // Update currentColor internally
         setDropdownOpen(false);
-        setDashOptions(newOptions); // Update Dash options
     }
 
     return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } }, [
@@ -141,5 +140,5 @@ export default function GroupDropdown(props) {
 GroupDropdown.defaultProps = {
     value: 'Recent',
     currentColor: '#FFB3BA', // Default color
-    additionalOptions: [] // Default to an empty array
+    options: [] // Default to an empty array
 };
