@@ -162,7 +162,13 @@ def layout(
             'flex-wrap': 'wrap'
         }),
         ], style={'align-items': 'center', 'justify-content': 'center'}),
-        html.Div(id='mouse-content')
+        # Add the loading spinner here
+        dcc.Loading(
+            id="loading-spinner",
+            type="circle",  # Spinner type (circle, dot, etc.)
+            children=html.Div(id='mouse-content'),  # Wrap the content in the loading spinner
+            style={'margin-top': '20px'}
+        )
     ])
 
 # Callback to populate EventSelection options from event-store
@@ -195,42 +201,6 @@ def populate_group_dropdown_options(
         options = []
     return [{'label': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
 
-#@callback(
-#    Output('mouse-data-store', 'data'),
-#    [Input('mouse-data-store', 'data'), 
-#     Input('url', 'pathname'), 
-#     Input('selected-folder', 'data'), 
-#     Input('event-store', 'data')]
-#)
-def load_mouse_data(
-    data, 
-    pathname, 
-    folder, 
-    events
-    ):
-    if not data:
-        data = {}
-     # Ensure the callback only runs for the `/mouse/<id>` path
-    print('pathname', pathname)
-    if not pathname.startswith('/mouse/'):
-        print('Not on mouse')
-        return data  # Do nothing if not on a mouse page
-    
-    mouse = pathname.split('/')[-1]
-
-    # Safely convert events to a hashable type
-    try:
-        events_hashable = tuple(sorted(events.items())) if isinstance(events, dict) else None
-    except AttributeError:
-        events_hashable = None
-
-    # Check if data[mouse] exists and is not None before accessing its attributes
-    if mouse in data.keys() and data[mouse] is not None and events_hashable == data[mouse].get('events'):
-        return data
-    else:
-        mouse_data = load_raw_data(folder, mouse, events_hashable)
-        data[mouse] = mouse_data
-        return data
 
 @callback(
     Output('mouse-content', 'children'),
