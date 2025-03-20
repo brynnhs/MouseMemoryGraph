@@ -77,44 +77,47 @@ layout = html.Div([
         'margin': '10px 0',
         'backgroundColor': 'white'
     }),
-    html.Div([
-        EventSelection(id='event-selection'),
-        html.Div(id='selected-event-output', style={'margin': '10px 0'}),
-        html.Button(
-            'Add Interval',
-            id='add-interval',
-            disabled=True,
-            n_clicks=0,
-            className='button-disabled' if True else 'button-enabled',  # Default to disabled
-            style={
-                'height': '40px',
-                'lineHeight': '40px',
-                'borderWidth': '1px',
-                'borderStyle': 'solid',
-                'borderRadius': '10px',
-                'padding': '0 20px'
-            }
-        ),
-        html.Button(
-            'Save Event',
-            id='save-event',
-            n_clicks=0,
-            style={
-                'height': '40px',
-                'lineHeight': '40px',
-                'borderWidth': '1px',
-                'borderStyle': 'solid',
-                'borderRadius': '10px',
-                'backgroundColor': '#007bff',
-                'color': 'white',
-                'padding': '0 20px'
-            })
-    ], style={
-        'backgroundColor': 'white',
-        'borderRadius': '10px',
-        'padding': '10px',
-        'margin': '10px 0'
-    }),
+    dcc.Loading(
+        type="circle",
+        children=[
+        html.Div([
+            EventSelection(id='event-selection'),
+            html.Div(id='selected-event-output', style={'margin': '10px 0'}),
+            html.Button(
+                'Add Interval',
+                id='add-interval',
+                disabled=True,
+                n_clicks=0,
+                className='button-disabled' if True else 'button-enabled',  # Default to disabled
+                style={
+                    'height': '40px',
+                    'lineHeight': '40px',
+                    'borderWidth': '1px',
+                    'borderStyle': 'solid',
+                    'borderRadius': '10px',
+                    'padding': '0 20px'
+                }
+            ),
+            html.Button(
+                'Save Event',
+                id='save-event',
+                n_clicks=0,
+                style={
+                    'height': '40px',
+                    'lineHeight': '40px',
+                    'borderWidth': '1px',
+                    'borderStyle': 'solid',
+                    'borderRadius': '10px',
+                    'backgroundColor': '#007bff',
+                    'color': 'white',
+                    'padding': '0 20px'
+                })
+        ], style={
+            'backgroundColor': 'white',
+            'borderRadius': '10px',
+            'padding': '10px',
+            'margin': '10px 0'
+        })])
 ], style={'padding': '20px'})
 
 

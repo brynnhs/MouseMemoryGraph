@@ -167,7 +167,8 @@ def layout(
             id="loading-spinner",
             type="circle",  # Spinner type (circle, dot, etc.)
             children=html.Div(id='mouse-content'),  # Wrap the content in the loading spinner
-            style={'margin-top': '20px'}
+            style={'margin-top': '20px'},
+            overlay_style={'height': '500px'}
         )
     ])
 
