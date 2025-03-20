@@ -1,3 +1,6 @@
+# 1. Overview: This module defines the home page for the Mouse Memory Graph App.
+# It sets up the layout components for folder path submission, event selection,
+# and display of event intervals.
 import dash
 from dash import html, dcc
 from dash.dependencies import Input, Output, State
@@ -10,6 +13,9 @@ app = dash.get_app()
 # Load the EventSelection React component globally
 EventSelection = load_react_component(app, "components", "EventSelection.js")
 
+# 3. Layout Structure: Define the homepage layout including data stores, inputs,
+# display components, and sections for folder path submission, welcome message,
+# and event selection.
 layout = html.Div([
     dcc.Store(id='selected-event', data=None),  # Store to hold the currently selected event
     html.Div([
@@ -101,7 +107,10 @@ layout = html.Div([
     }),
 ], style={'padding': '20px'})
 
+# 4. Callbacks
 
+# 4.1 Callback: update_event_store
+# Purpose: Update the event store when a new event is selected via EventSelection.
 @app.callback(
     [Output('event-store', 'data', allow_duplicate=True),
      Output('selected-event', 'data'),
@@ -118,6 +127,8 @@ def update_event_store(selected_event, current_store):
         return current_store, selected_event, False, 'button-enabled'
     return current_store, None, True, 'button-disabled'
 
+# 4.2 Callback: update_selected_event_output
+# Purpose: Update the display output (DataTable) for the selected event's interval data.
 @app.callback(
     [Output('selected-event-output', 'children')],
     [Input('selected-event', 'data'),
@@ -126,51 +137,53 @@ def update_event_store(selected_event, current_store):
     prevent_initial_call=True
 )
 def update_selected_event_output(selected_event, n_clicks, event_store):
-        data = event_store[selected_event]
+    data = event_store[selected_event]
 
-        if n_clicks:
-            data.append((0,0))
-            event_store[selected_event] = data
+    if n_clicks:
+        data.append((0,0))
+        event_store[selected_event] = data
 
-        return dash_table.DataTable(
-            id='interval-table',
-            columns=[
-                {'name': 'Start Time (s)', 'id': 'start', 'type': 'numeric'},
-                {'name': 'End Time (s)', 'id': 'end', 'type': 'numeric'}
-            ],
-            editable=True,
-            row_deletable=True,
-            style_cell={
-                'textAlign': 'center',
-                'padding': '10px',
-                'border': '1px solid #ccc'
+    return dash_table.DataTable(
+        id='interval-table',
+        columns=[
+            {'name': 'Start Time (s)', 'id': 'start', 'type': 'numeric'},
+            {'name': 'End Time (s)', 'id': 'end', 'type': 'numeric'}
+        ],
+        editable=True,
+        row_deletable=True,
+        style_cell={
+            'textAlign': 'center',
+            'padding': '10px',
+            'border': '1px solid #ccc'
+        },
+        style_header={
+            'fontFamily': 'Arial, sans-serif',
+            'backgroundColor': '#f4f4f4',
+            'fontWeight': 'bold',
+            'border': '1px solid #ccc',
+        },
+        style_data={
+            'fontFamily': 'Arial, sans-serif',
+            'fontSize': '14px'
+        },
+        style_data_conditional=[
+            {
+                'if': {'state': 'active'},
+                'backgroundColor': 'inherit',
+                'border': '3px solid #ccc'
             },
-            style_header={
-                'fontFamily': 'Arial, sans-serif',
-                'backgroundColor': '#f4f4f4',
-                'fontWeight': 'bold',
-                'border': '1px solid #ccc',
-            },
-            style_data={
-                'fontFamily': 'Arial, sans-serif',  # Set the default font
-                'fontSize': '14px'  # Optional: Set a default font size
-            },
-            style_data_conditional=[
-                {
-                    'if': {'state': 'active'},  # When a cell is active
-                    'backgroundColor': 'inherit',  # Keep the background color unchanged
-                    'border': '3px solid #ccc'  # Keep the border consistent
-                },
-                {
-                    'if': {'state': 'selected'},  # When a cell is selected
-                    'backgroundColor': 'inherit',  # Keep the background color unchanged
-                    'border': '3px solid #ccc'  # Keep the border consistent
-                }
-            ],
-            style_as_list_view=True,
-            data=event_store[selected_event]
-        ),
+            {
+                'if': {'state': 'selected'},
+                'backgroundColor': 'inherit',
+                'border': '3px solid #ccc'
+            }
+        ],
+        style_as_list_view=True,
+        data=event_store[selected_event]
+    ),
 
+# 4.3 Callback: update_interval_table
+# Purpose: Synchronize changes in the interval table with the event store.
 @app.callback(
     Output('event-store', 'data'),
     [Input('interval-table', 'data'),
@@ -183,7 +196,8 @@ def update_interval_table(interval_data, selected_event, event_store):
         event_store[selected_event] = interval_data
     return event_store  
 
-# Callback to populate EventSelection options from event-store
+# 4.4 Callback: populate_event_selection_options
+# Purpose: Populate EventSelection dropdown options based on the keys in the event store.
 @app.callback(
     Output('event-selection', 'options'),
     [Input('event-store', 'data')]
@@ -194,6 +208,8 @@ def populate_event_selection_options(event_store):
         return [{'label': key, 'value': key, 'text': key} for key in event_store.keys()]
     return []
 
+# 4.5 Callback: update_selected_folder
+# Purpose: Update the stored folder path based on the user’s input and submit button click.
 @app.callback(
     Output('selected-folder', 'data'),
     [Input('submit-path', 'n_clicks'),

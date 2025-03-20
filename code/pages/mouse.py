@@ -22,13 +22,8 @@ from concurrent.futures import ThreadPoolExecutor
 dash.register_page(__name__, path_template='/mouse/<id>')
 app = dash.get_app()
 
-# Determine the base path (works both for script and executable)
-if getattr(sys, 'frozen', False):
-    base_path = sys._MEIPASS
-else:
-    base_path = os.path.dirname(os.path.abspath(__file__))
 
-
+# 2. Data Loading and Caching: Load and process photometry and behavioral data, cache results
 # Load the GroupDropdown React component globally
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
 EventRender = load_react_component(app, "components", "EventRender.js")
@@ -65,6 +60,7 @@ def load_raw_data(
         return merged.to_dict()
     return None
 
+# 3. Dynamic Page Layout: Generate interactive UI components for mouse data visualization
 def layout(
         id=None, 
         **other_unknown_query_strings
@@ -165,7 +161,7 @@ def layout(
         html.Div(id='mouse-content')
     ])
 
-# Callback to populate EventSelection options from event-store
+# 4.1 Callback: Populate event selection dropdown with stored event data
 @app.callback(
     Output('event-selection-mouse', 'options'),
     [Input('event-store', 'data')]
@@ -180,7 +176,7 @@ def populate_event_selection_options(
         options = []
     return [{'label': key, 'value': key, 'text': key} for key in options]
 
-# Callback to populate GroupDropdown options from group-store
+# 4.2 Callback: Populate group dropdown options from stored assignments
 @app.callback(
     Output('group-dropdown', 'options'),
     [Input('group-store', 'data')]
@@ -195,6 +191,7 @@ def populate_group_dropdown_options(
         options = []
     return [{'label': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
 
+# 4.3 Callback: Load and cache mouse data dynamically when selection changes
 @callback(
     Output('mouse-data-store', 'data'),
     [Input('mouse-data-store', 'data'), 
@@ -225,7 +222,8 @@ def load_mouse_data(
         mouse_data = load_raw_data(folder, mouse, events_hashable)
         data[mouse] = mouse_data
         return data
-
+    
+# 4.4 Callback: Generate and update visualization based on user selections
 @callback(
     Output('mouse-content', 'children'),
     [Input('mouse-data-store', 'data'),
@@ -430,7 +428,7 @@ def update_graph(
     
     return content
 
-# Combined callback for handling both dropdown changes and URL updates.
+# 4.5 Callback: Assign selected mouse to a condition group
 @app.callback(
     Output('group-dropdown', 'value'),
     [Input('group-store', 'data'),
@@ -467,6 +465,7 @@ def update_mouse_assignment(mouse_assignments, new_value, color, pathname):
     print(mouse_assignments)
     return mouse_assignments
 
+# 4.6 Callback: Update trace selection dropdown based on graph selection
 @app.callback(
     Output('acc-trace-dropdown', 'options'),
     [
@@ -582,6 +581,8 @@ def update_adn_trace_options(
       State('acc_separated', 'figure')
     ]
 )
+
+# 4.7 Callback: Update trace colors dynamically in the visualization
 def update_acc_color(color_value, selected_graph, selected_trace,
                      fig_full, fig_interval_on, fig_interval_off,
                      fig_change, fig_separated):

@@ -1,3 +1,5 @@
+# 1. Overview: This module loads and processes photometry and behavioral datasets, and performs merging.
+# 2. Dependencies and Imports
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,6 +9,7 @@ from scipy.interpolate import interp1d
 import sys
 import os
 
+# 4. Key Classes and Components - 4.1 PhotometryDataset
 class PhotometryDataset():
     """
     Class for loading and processing photometry data
@@ -137,7 +140,7 @@ class PhotometryDataset():
         self.df = df_normalized
         return df_normalized
 
-
+# 4. Key Classes and Components - 4.2 BehaviorDataset
 class BehaviorDataset():
     """
     Class for loading and processing behavioral data.
@@ -196,7 +199,7 @@ class BehaviorDataset():
         head_freezing = convolve1d(head_freezing, kernel, mode='constant')
         return head_freezing > 2
     
-
+# 4. Key Classes and Components - 4.3 MergeDatasets
 class MergeDatasets():
     """
     Class for merging photometry and behavior data.
@@ -373,7 +376,7 @@ class MergeDatasets():
 
 
 
-# --- Dynamic Data Loading for Multiple Mice ---
+# 3. Module Structure - Dynamic Data Loading for Multiple Mice
 
 if getattr(sys, 'frozen', False):
     # Running as an executable

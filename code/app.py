@@ -1,3 +1,5 @@
+# 1. Overview: This file sets up a multi-page Dash application for the MouseMemoryGraph project.
+# 3. Dependencies and Imports
 import os
 import sys
 import time
@@ -7,6 +9,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output, State
 from dash_local_react_components import load_react_component
 
+# 4. Key Functions and Components - 4.1 get_color_hex
 def get_color_hex(color_value):
     """
     Given a color value from a ColorPicker, returns a hex string.
@@ -20,13 +23,7 @@ def get_color_hex(color_value):
             return '#{:02x}{:02x}{:02x}'.format(rgb.get('r', 0), rgb.get('g', 0), rgb.get('b', 0))
     return color_value  # fallback if not a dict
 
-# Determine the base path (works both for script and executable)
-if getattr(sys, 'frozen', False):
-    base_path = sys._MEIPASS
-else:
-    base_path = os.path.dirname(os.path.abspath(__file__))
-
-
+# 4. Key Functions and Components - 4.2 load_raw_data
 def load_raw_data(data_dir):
     """Load raw merged data for all mice and store in mouse_data."""
     mouse_data = {}
@@ -37,12 +34,14 @@ def load_raw_data(data_dir):
 
     return mouse_data
 
-
+# 5. Dash Application Structure - 5.1 Application Initialization
 app = dash.Dash(__name__, use_pages=True, assets_folder='../assets')
 
+# 5. Dash Application Structure - 5.1 Application Initialization: Load custom React component
 # Load the GroupDropdown React component globally
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")
 
+# 5. Dash Application Structure - 5.2 Layout Design
 app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     # Header image
@@ -82,6 +81,7 @@ app.layout = html.Div([
     dcc.Store(id='group-store', data={}, storage_type='session'),
 ])
 
+# 5. Dash Application Structure - 5.3 Custom Index Template
 app.index_string = '''
 <!DOCTYPE html>
 <html>
@@ -115,6 +115,7 @@ app.index_string = '''
 </html>
 '''
 
+# 6. Callback Functions - 6.1 update_app_state
 @app.callback(
     Output('app-state', 'data'),
     Input('submit-path', 'n_clicks'),
@@ -130,6 +131,7 @@ def update_app_state(n_clicks, data, input_value):
         return data
     return {}
 
+# 6. Callback Functions - 6.2 update_dropdown_options
 @app.callback(
     Output('mouse-dropdown', 'options'),
     Input('app-state', 'data')
@@ -155,6 +157,7 @@ def update_dropdown_options(data):
         return options
     return [{"label": "No data available", "value": "None"}]
 
+# 6. Callback Functions - 6.3 update_dropdown_value
 @app.callback(
     Output('mouse-dropdown', 'value'),
     Input('url', 'pathname'),
@@ -164,8 +167,7 @@ def update_dropdown_value(pathname, options):
     values = [option['value'] for option in options]
     return pathname if pathname in values else "None"
 
-
-
+# 7. Server Execution
 if __name__ == '__main__':
     time.sleep(1)
     webbrowser.open("http://127.0.0.1:8050/")
