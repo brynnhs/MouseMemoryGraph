@@ -75,7 +75,7 @@ app.layout = html.Div([
     ], style={'text-align': 'center', 'margin-top': '10px'}),
 
     # Store component to persist state
-    dcc.Store(id='app-state', storage_type='session'),
+    dcc.Store(id='app-state', data={}, storage_type='session'),
     dcc.Store(id='selected-folder', storage_type='session'),
     dcc.Store(id='mouse-data-store', storage_type='session'),
     dcc.Store(id='event-store', data={}, storage_type='session'),
@@ -116,19 +116,23 @@ app.index_string = '''
 '''
 
 @app.callback(
-    Output('app-state', 'data'),
-    Input('submit-path', 'n_clicks'),
-    Input('app-state', 'data'),
-    State('input-path', 'value')
+    [Output('app-state', 'data'),
+     Output('submit-path', 'n_clicks')],
+    [Input('submit-path', 'n_clicks')],
+    [State('app-state', 'data'),
+    State('input-path', 'value')]
 )
 def update_app_state(n_clicks, data, input_value):
     # if already data in the app state, return it
     if n_clicks > 0 and input_value:
         mouse_data = load_raw_data(input_value)
-        return {'mouse_data': mouse_data}
+        return {'mouse_data': mouse_data}, 0
     elif data:
-        return data
-    return {}
+        if n_clicks > 0:
+            return data, 0
+        print('Dont update existing data')
+        return dash.no_update, 0
+    return {}, 0
 
 @app.callback(
     Output('mouse-dropdown', 'options'),
@@ -157,8 +161,8 @@ def update_dropdown_options(data):
 
 @app.callback(
     Output('mouse-dropdown', 'value'),
-    Input('url', 'pathname'),
-    State('mouse-dropdown', 'options')
+    [Input('url', 'pathname')],
+    [State('mouse-dropdown', 'options')]
 )
 def update_dropdown_value(pathname, options):
     values = [option['value'] for option in options]

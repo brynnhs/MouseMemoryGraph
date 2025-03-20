@@ -8,6 +8,7 @@ from dash import dcc, html, callback
 from dash.dependencies import Input, Output, State
 from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
+from dash import callback_context
 
 # Import visualization functions
 from visualize import generate_average_plot, generate_plots
@@ -190,16 +191,21 @@ def populate_group_dropdown_options(
 
 @callback(
     Output('mouse-data-store', 'data'),
-    [Input('mouse-data-store', 'data'), 
-     Input('url', 'pathname'), 
-     Input('selected-folder', 'data'), 
-     Input('app-state', 'data'),
-     Input('event-store', 'data')],
+    [Input('selected-folder', 'data'), 
+     Input('event-store', 'data'),
+     Input('app-state', 'data')],
+     [State('mouse-data-store', 'data')]
 )
 
-def load_mouse_data(data, pathname, folder, app_state, events):
+def load_mouse_data(folder, events, app_state, data):
+    print("Loading mouse data")
+
     if not data:
         data = {}
+
+    # Ensure app_state is not None
+    if not app_state:
+        return data
     # Ensure the callback only runs for the `/mouse/<id>` path
     mouse_data = app_state.get('mouse_data', {})
 
@@ -208,11 +214,10 @@ def load_mouse_data(data, pathname, folder, app_state, events):
         if mouse not in data.keys() or not data[mouse]: #or events != data[mouse].get('events', None):
             mouse_data = load_raw_data(folder, mouse, events)
             data[mouse] = mouse_data
-        elif list(events.keys()) != [e for e in data[mouse].get('events', None) if e != 'freezing']:
-            print('Events do not match')
-            print(list(events.keys()))
-            print(data[mouse].get('events', None))
-            print([e for e in data[mouse].get('events', None) if e != 'freezing'])
+        elif events and events != [] and events != {}:
+            ctx = callback_context
+            if ctx.triggered:
+                print(f"Triggered by: {ctx.triggered[0]['prop_id']}")
             mouse_data = load_raw_data(folder, mouse, events)
             data[mouse] = mouse_data
         else:

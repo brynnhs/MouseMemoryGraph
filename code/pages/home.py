@@ -219,7 +219,7 @@ def sync_hidden_event_store_on_load(pathname, event_store):
     if pathname == '/':  # Ensure this only runs on the home page
         if event_store:
             return event_store  # Synchronize hidden-event-store with event-store
-    return {}
+    return dash.no_update  # Prevent unnecessary updates
 
 @app.callback(
     [Output('event-store', 'data'),
@@ -230,8 +230,22 @@ def sync_hidden_event_store_on_load(pathname, event_store):
     prevent_initial_call=True
 )
 def save_event(n_clicks, hidden_event_store, event_store):
+            # Normalize the dictionaries for comparison
+    def normalize_dict(d):
+        return {k: sorted(v, key=lambda x: tuple(sorted(x.items()))) for k, v in d.items()}
+
+    normalized_hidden = normalize_dict(hidden_event_store)
+    normalized_event = normalize_dict(event_store)
+    if normalized_hidden == normalized_event:
+        return dash.no_update, 0  # Prevent unnecessary updates
+
     if n_clicks:
+        if hidden_event_store == {}:
+            return dash.no_update, 0
         event_store.update(hidden_event_store)
+    print('still updated')
+    print('ev', event_store)
+    print('hidden', hidden_event_store)
     return event_store, 0
 
 # Callback to populate EventSelection options from event-store
@@ -251,8 +265,12 @@ def populate_event_selection_options(hidden_event_store, event_store, selected_e
 
 @app.callback(
     Output('selected-folder', 'data'),
-    [Input('submit-path', 'n_clicks'),
-     Input('input-path', 'value')],
+    [Input('submit-path', 'n_clicks')],
+     [State('input-path', 'value'),
+      State('selected-folder', 'data')],
 )
-def update_selected_folder(n_clicks, input):
+def update_selected_folder(n_clicks, input, selected_folder):
+    print(f"input: {input}, selected_folder: {selected_folder}")
+    if input == selected_folder:
+        return dash.no_update
     return input
