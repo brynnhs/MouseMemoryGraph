@@ -60,14 +60,14 @@ def load_raw_data(data_dir):
     mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
     for mouse in mouse_folders:
             mouse_data[mouse] = []
-            group = mouse.split('_')[-1]
-            if group in _color.values():
-                color = _color[group]
-            else:
-                # pick random color
-                color = random.choice(pastel_colors)
-                _color[group] = color
-            if group != '':
+            if '_' in mouse:
+                group = mouse.split('_')[-1]
+                if group in _color.values():
+                    color = _color[group]
+                else:
+                    # pick random color
+                    color = random.choice(pastel_colors)
+                    _color[group] = color
                 group_store[mouse] = {'group': group, 'color': color}
 
     return mouse_data, group_store
