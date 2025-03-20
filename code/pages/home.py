@@ -129,7 +129,6 @@ layout = html.Div([
 
 def update_color_tracking(selected_event, current_color, data):
     data[selected_event] = current_color
-    print(data)
     return data
 
 @app.callback(
@@ -284,7 +283,6 @@ def populate_event_selection_options(hidden_event_store, event_store, selected_e
       State('selected-folder', 'data')],
 )
 def update_selected_folder(n_clicks, input, selected_folder):
-    print(f"input: {input}, selected_folder: {selected_folder}")
     if input == selected_folder:
         return dash.no_update
     return input

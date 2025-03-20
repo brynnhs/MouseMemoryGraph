@@ -425,7 +425,6 @@ def manage_mouse_assignment(mouse_assignments, pathname):
         return None  # No assignment exists, so nothing is selected
     mouse_id = pathname.split('/')[-1]
     stored_assignment = mouse_assignments.get(mouse_id, {})
-    print('stored_assignment', stored_assignment)
     return stored_assignment.get('group')  # Return the group if it exists, otherwise None
 
 @app.callback(
@@ -445,7 +444,6 @@ def update_mouse_assignment(mouse_assignments, new_value, color, pathname):
     if new_value and color:  # Only update if a new value is selected
         mouse_assignments[mouse_id] = {'group': new_value, 'color': color}
 
-    print(mouse_assignments)
     return mouse_assignments
 
 @app.callback(

@@ -168,7 +168,6 @@ def update_app_state(n_clicks, data, input_value):
     elif data:
         if n_clicks > 0:
             return data, dash.no_update, 0
-        print('Dont update existing data')
         return dash.no_update, dash.no_update, 0
     return {}, dash.no_update, 0
 

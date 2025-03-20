@@ -35,7 +35,7 @@ def load_raw_data(data_dir, mouse, events):
     mouse_data = {}
     photometry_path = os.path.join(data_dir, mouse, f"{mouse.split('_')[0]}_recording.csv.csv")
     behavior_path = os.path.join(data_dir, mouse, f"{mouse.split('_')[0]}_behavior.csv.csv")
-    print(photometry_path)
+    print('Loading data', mouse)
     if os.path.exists(photometry_path) and os.path.exists(behavior_path):
         photometry = PhotometryDataset(
             photometry_path,
@@ -198,7 +198,6 @@ def populate_group_dropdown_options(
 )
 
 def load_mouse_data(folder, events, app_state, data):
-    print("Loading mouse data")
 
     if not data:
         data = {}
@@ -216,8 +215,6 @@ def load_mouse_data(folder, events, app_state, data):
             data[mouse] = mouse_data
         elif events and events != [] and events != {}:
             ctx = callback_context
-            if ctx.triggered:
-                print(f"Triggered by: {ctx.triggered[0]['prop_id']}")
             mouse_data = load_raw_data(folder, mouse, events)
             data[mouse] = mouse_data
         else:
@@ -299,11 +296,9 @@ def update_graph(mouse_data,
                  selected_event,
                  event_colors):
 
-    print(assignments)
     for mouse, group in assignments.items():
         if group['group'] not in color_map.keys():
             color_map[group['group']] = group['color']
-    print(color_map)
     assignments = {mouse: group['group'] for mouse, group in assignments.items()}
 
     # Default to all groups if none selected.
