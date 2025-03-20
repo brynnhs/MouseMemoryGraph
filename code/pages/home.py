@@ -120,6 +120,17 @@ layout = html.Div([
         })])
 ], style={'padding': '20px'})
 
+@app.callback(
+    Output('event-colors', 'data'),
+    [Input('event-selection', 'value'),
+     Input('event-selection', 'currentColor')],
+     [State('event-colors', 'data')]
+)
+
+def update_color_tracking(selected_event, current_color, data):
+    data[selected_event] = current_color
+    print(data)
+    return data
 
 @app.callback(
     [Output('selected-event', 'data'),

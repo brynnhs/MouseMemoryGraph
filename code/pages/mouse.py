@@ -216,6 +216,7 @@ def populate_group_dropdown_options(
      Input('graph-title', 'value'),
      Input('x-axis-title', 'value'),
      Input('y-axis-title', 'value')],
+     [State('event-colors', 'data')]
 )
 
 def update_graph(
@@ -229,7 +230,8 @@ def update_graph(
      y_axis_step,
      graph_title,
      x_axis_title,
-     y_axis_title
+     y_axis_title,
+     event_colors
     ):
 
     if not mouse_data:
@@ -261,12 +263,14 @@ def update_graph(
                                      merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on),
                                      merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on),
                                      selected_event,
+                                     event_colors,
                                      name='ACC')
         adn_future = executor.submit(generate_plots, merged, merged.df, freezing_intervals, fps, seconds_before, seconds_after,
                                      epoch_data['ADN']['on'], epoch_data['ADN']['off'],
                                      merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on),
                                      merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on),
                                      selected_event,
+                                     event_colors,
                                      name='ADN')
 
         acc_full, acc_interval_on, acc_interval_off, acc_change = acc_future.result()
@@ -274,10 +278,10 @@ def update_graph(
 
     acc_separated = generate_separated_plot(merged, 'ACC', 200,
                                              merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on),
-                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event)
+                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event, event_colors)
     adn_separated = generate_separated_plot(merged, 'ADN', 200,
                                              merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on),
-                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event)
+                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event, event_colors)
 
     # Update axis steps and layout titles for all figures (not x axis for bar plots)
     figure_list = [

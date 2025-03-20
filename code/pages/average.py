@@ -285,6 +285,7 @@ def update_trace_dropdown(selected_plot, stored_figures):
      Input('boolean-switch', 'on'),
      Input('color-overrides', 'data'),
      Input('event-selection-average', 'value')],
+     [State('event-colors', 'data')]
 )
 def update_graph(mouse_data, 
                  assignments,
@@ -295,7 +296,8 @@ def update_graph(mouse_data,
                  selected_groups, 
                  on, 
                  color_overrides, 
-                 selected_event):
+                 selected_event,
+                 event_colors):
 
     print(assignments)
     for mouse, group in assignments.items():
@@ -329,6 +331,7 @@ def update_graph(mouse_data,
 
         # Precompute intervals and epochs
         intervals = merged.get_freezing_intervals() if selected_event == 'freezing' else merged.get_freezing_intervals(0, selected_event)
+        color = None if selected_event == 'freezing' else event_colors[selected_event]
 
         if fps is None:
             fps = merged.fps
@@ -358,8 +361,8 @@ def update_graph(mouse_data,
         return html.Div("No data available for the selected condition groups."), {}
     
     # Generate the average plots using dictionaries.
-    acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_map, color_overrides)
-    adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_map, color_overrides)
+    acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_map, color, color_overrides)
+    adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_map, color, color_overrides)
     
     # Update axis tick step for all figures
     for fig in [acc_on_fig, acc_off_fig, adn_on_fig, adn_off_fig, acc_on_change, acc_off_change, adn_on_change, adn_off_change]:
