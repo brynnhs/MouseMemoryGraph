@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# 1. Overview: This module generates plots and visualizations for sensor data.
+# 3. Dependencies and Imports
 import plotly.graph_objs as go
 import numpy as np
 
@@ -6,6 +9,8 @@ pastel_colors = [
     '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BAFF', '#FFBAE1', '#BAFFD4'
 ]
 
+## Insert comment before generate_average_plot
+# 4. Key Functions and Components - 4.1 generate_average_plot
 def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before, after, fps, color_map, color_overrides=None):
     """
     Generate average plots for ON and OFF epochs.
@@ -195,6 +200,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
     
     return fig_on, fig_off, avg_change_on, avg_change_off
 
+# 4. Key Functions and Components - 4.2 generate_plots
 def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, event, name='ACC'):
     """
     Generate detailed plots for the given sensor:
@@ -393,6 +399,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
     
     return fig, interval_on, interval_off, avg_change
 
+# 4. Key Functions and Components - 4.3 generate_separated_plot
 def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fps, freezing_intervals, seconds_after, event):
     """
     Generate a separated plot for a given sensor (e.g., 'ACC' or 'ADN').

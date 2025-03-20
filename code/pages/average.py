@@ -1,3 +1,5 @@
+# 1. Overview: This module creates the Average page for visualizing sensor data averages using Dash.
+# 2. Dependencies and Imports
 import os
 import sys
 import dash
@@ -29,6 +31,8 @@ if getattr(sys, 'frozen', False):
 else:
     base_path = os.path.dirname(os.path.abspath(__file__))
 
+# Function: load_raw_data
+# Purpose: Load raw merged data for a given mouse from the photometry and behavior CSV files, normalize and merge them.
 def load_raw_data(data_dir, mouse, events):
     """Load raw merged data for all mice and store in mouse_data."""
     mouse_data = {}
@@ -59,6 +63,7 @@ condition_assignments = load_assignments()
 GroupSelection = load_react_component(app, "components", "GroupSelection.js")
 EventRender = load_react_component(app, "components", "EventRender.js")
 
+# Layout: Defines the structure of the Average page including data stores, input controls, and graphs.
 layout = html.Div([
     dcc.Store(id='stored-figures', data={}),
     dcc.Store(id='color-overrides', data={}),
@@ -155,7 +160,8 @@ layout = html.Div([
 ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'}),
 ])
 
-# Callback to populate EventSelection options from event-store
+# Callback: populate_event_selection_options
+# Purpose: Update event selection dropdown options based on the event-store data.
 @app.callback(
     Output('event-selection-average', 'options'),
     [Input('event-store', 'data')]
@@ -168,7 +174,8 @@ def populate_event_selection_options(event_store):
         options = []
     return [{'label': key, 'value': key, 'text': key} for key in options]
 
-# Callback to populate GroupDropdown options from group-store
+# Callback: populate_group_dropdown_options
+# Purpose: Update the group selection dropdown with options from the group-store data.
 @app.callback(
     Output('group-selection', 'options'),
     [Input('group-store', 'data')]
@@ -183,6 +190,8 @@ def populate_group_dropdown_options(
         options = []
     return [{'key': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
 
+# Callback: load_mouse_data
+# Purpose: Load or update mouse data based on the selected folder, app state, and events.
 @callback(
     Output('mouse-data-store', 'data', allow_duplicate=True),
     [Input('mouse-data-store', 'data'), 
@@ -192,7 +201,6 @@ def populate_group_dropdown_options(
      Input('event-store', 'data')],
     prevent_initial_call=True
 )
-
 def load_mouse_data(data, pathname, folder, app_state, events):
     mouse_data = app_state.get('mouse_data', {})
     if not data:
@@ -207,6 +215,8 @@ def load_mouse_data(data, pathname, folder, app_state, events):
             print('')
     return data
 
+# Callback: update_color_overrides
+# Purpose: Update the color mapping for specific traces based on the selected color from the color picker.
 @callback(
     Output('tab-content', 'children', allow_duplicate=True),
     Output('color-overrides', 'data'),
@@ -234,6 +244,8 @@ def update_color_overrides(selected_color, selected_plot, selected_trace, color_
     # Return no update for `tab-content.children` and the updated `color-overrides`
     return dash.no_update, color_overrides
 
+# Callback: update_trace_dropdown
+# Purpose: Update the trace dropdown options based on the selected average plot and stored figures.
 @callback(
     Output('average-trace-dropdown', 'options'),
     [Input('average-plot-dropdown', 'value')],
@@ -254,6 +266,8 @@ def update_trace_dropdown(selected_plot, stored_figures):
 
     return trace_options if trace_options else [{'label': 'No traces available', 'value': 'None'}]
 
+# Callback: update_graph
+# Purpose: Generate average plots and update the page content and stored figures based on user inputs and loaded mouse data.
 @callback(
     [Output('tab-content', 'children'),
     Output('stored-figures', 'data')],
