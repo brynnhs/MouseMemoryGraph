@@ -230,7 +230,7 @@ def sync_hidden_event_store_on_load(pathname, event_store):
     prevent_initial_call=True
 )
 def save_event(n_clicks, hidden_event_store, event_store):
-            # Normalize the dictionaries for comparison
+    # Normalize the dictionaries for comparison
     def normalize_dict(d):
         return {k: sorted(v, key=lambda x: tuple(sorted(x.items()))) for k, v in d.items()}
 
@@ -243,9 +243,9 @@ def save_event(n_clicks, hidden_event_store, event_store):
         if hidden_event_store == {}:
             return dash.no_update, 0
         event_store.update(hidden_event_store)
-    print('still updated')
-    print('ev', event_store)
-    print('hidden', hidden_event_store)
+    else:
+        return dash.no_update, 0
+    
     return event_store, 0
 
 # Callback to populate EventSelection options from event-store
