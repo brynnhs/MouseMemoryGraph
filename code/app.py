@@ -67,7 +67,8 @@ def load_raw_data(data_dir):
                 # pick random color
                 color = random.choice(pastel_colors)
                 _color[group] = color
-            group_store[mouse] = {'group': group, 'color': color}
+            if group != '':
+                group_store[mouse] = {'group': group, 'color': color}
 
     return mouse_data, group_store
 
