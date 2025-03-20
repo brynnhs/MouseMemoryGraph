@@ -1,11 +1,11 @@
 # [MouseMemoryGraph](https://wiki.bme-paris.com/2025-project05/tiki-index.php?page=HomePage)
 
 ## Overview
-MouseMemoryGraph is a **Dash-based web application** for visualizing and analyzing neural and behavioral data from mouse experiments. The application integrates **photometry data** and **behavioral tracking data** to provide interactive visualizations and interval-based analyses. Click on the title above to check out our website which gives a detailed background on this project and our team.
+MouseMemoryGraph is a **Dash-based web application** for visualizing and analyzing neural and behavioral data from mouse experiments. The application integrates **photometry data** and **behavioral data** to provide interactive visualizations and event-based analyses. Click on the title above to check out our website which gives a detailed background on this project and our team.
 
 ## Features
-- Interactive plots for photometry and behavioral data
-- Epoching for visualizations of freezing behaviour onset and offset events
+- Interactive plots that combine photometry and behavioural data
+- Event-related visualizations of freezing behaviour onset and offset events
 - Reprocessing functionality to incorporate newly added datasets
 - Web-based dashboard for intuitive data exploration
 
@@ -52,32 +52,42 @@ pip freeze > requirements.txt
    ```
 
 ## Directory Structure
-```
-MouseMemoryGraph/
-│-- assets/                  # Static files (images, CSS, etc.)
-│   ├── header.png           # Header image for the dashboard
-│   ├── footer.png           # Footer image for the dashboard
-│   ├── style.css            # (Optional) Custom styles
-│-- code/                    # Source code
-│   ├── app.py               # Main Dash application
-│   ├── dataset.py           # Data processing classes
-│   ├── dashboard.py         # Dashboard layout and callbacks
+
+MOUSEMEMORYGRAPH/
+├── code/
+│   ├── __pycache__/           # Compiled Python files
+│   ├── assets/               # Static assets (images, CSS, etc.)
+│   ├── components/           # JS components for the app
+│   ├── pages/
+│   │   ├── home.py           # Home page
+│   │   ├── mouse.py          # Individual mouse pages
+│   │   └── average.py        # Averages across and between groups
+│   ├── app.py                # Main application entry point
+│   ├── assignments.json      # For saving group assignments
+│   ├── dataset.py            # Data loading and processing logic
+│   ├── utils.py              # Utility functions
+│   └── visualize.py          # To produce the visualizations
 │-- data/                    # Data directory (must be manually populated)
-│   ├── mouse1/              # Example mouse dataset folder
-│   │   ├── cfc_2046.csv      # Photometry data
-│   │   ├── behavior.csv      # Behavioral tracking data
-│   ├── mouse2/              # Additional dataset
-│-- dist/                    # Compiled application (if using PyInstaller)
-│-- README.md                # This file
-```
+│   ├── mousename_group/              # Example mouse dataset folder *how you name the files matters
+│   │   ├── mousename_recording.csv      # Photometry data *where mousename is the mouse id
+│   │   ├── mousename_behavior.csv      # Behavioral classification data from deeplabcut
+│   ├── mouse2/              # Additional datasets
+├── documentation/            # Documentation files
+├── MouseMemoryGraph.spec     # PyInstaller or related spec file
+├── README.md                 # Project README
+├── requirements.txt          # Python dependencies
+├── run_app.bat               # Windows script to run the app
+├── run_app.sh                # Unix/Linux script to run the app
+└── .gitignore                # Git ignore rules
 
 ## Adding Your Data
-1. Place photometry and behavioral data files in the `data/` directory.
-2. Organize them into subfolders named after each mouse (e.g., `data/mouse1/`).
-3. Ensure file names follow the expected format:
-   - **Photometry:** `cfc_2046.csv`
-   - **Behavior:** `a2024-11-01T14_30_53DLC_resnet50_fearbox_optoJan27shuffle1_100000.csv`
-4. Run the application, and it will dynamically detect and load new datasets.
+1. Launch the dashboard
+2. Copy the path to your data folder on your computer
+3. Paste the path into the input box on the home page of the dashboard
+4. Ensure the data folder follows the structure above
+5. Click the "Process" button on the home page
+6. Navigate to the individual mouse pages or the group analysis
+*If you add a new event on the homepage you must click the "Process" button again to include it in analysis
 
 ## Acknowledgments
 This project includes concepts inspired by:
