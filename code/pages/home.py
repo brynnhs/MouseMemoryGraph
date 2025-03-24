@@ -39,8 +39,10 @@ layout = html.Div([
         dcc.Input(
             id='input-path',
             type='text',
+            value='data',  # Default to data folder
+            disabled=True,  # Disabled for demo version
             persistence=True,
-            placeholder='Enter folder path',
+            placeholder='data',
             style={
                 'width': '80%',
                 'height': '40px',
@@ -309,6 +311,4 @@ def populate_event_selection_options(hidden_event_store, event_store, selected_e
       State('selected-folder', 'data')],
 )
 def update_selected_folder(n_clicks, input, selected_folder):
-    if input == selected_folder:
-        return dash.no_update
-    return input
+    return 'data'
