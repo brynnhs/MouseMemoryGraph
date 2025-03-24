@@ -142,7 +142,11 @@ layout = html.Div([
             {'label': 'ACC Onset', 'value': 'accavgon'},
             {'label': 'ACC Offset', 'value': 'accavgoff'},
             {'label': 'ADN Onset', 'value': 'adnavgon'},
-            {'label': 'ADN Offset', 'value': 'adnavgoff'}
+            {'label': 'ADN Offset', 'value': 'adnavgoff'},
+            {'label': 'ACC Onset Change', 'value': 'accon_change'},
+            {'label': 'ACC Offset Change', 'value': 'accoff_change'},
+            {'label': 'ADN Onset Change', 'value': 'adnon_change'},
+            {'label': 'ADN Offset Change', 'value': 'adnoff_change'}
         ],
         value='accavgon',
         placeholder="Select an average plot"
@@ -223,18 +227,16 @@ def load_mouse_data(folder, events, app_state, data):
 
 
 @callback(
-    Output('tab-content', 'children', allow_duplicate=True),
     Output('color-overrides', 'data'),
     [Input('average-color-picker', 'value')],
     [State('average-plot-dropdown', 'value'),
      State('average-trace-dropdown', 'value'),
      State('color-overrides', 'data')],
-    prevent_initial_call=True
 )
 def update_color_overrides(selected_color, selected_plot, selected_trace, color_overrides):
     """Update the color map with the selected color for a specific trace."""
     if not selected_plot or not selected_trace or not selected_color:
-        return dash.no_update, color_overrides
+        return color_overrides
 
     if not color_overrides:
         color_overrides = {}
@@ -246,8 +248,10 @@ def update_color_overrides(selected_color, selected_plot, selected_trace, color_
     # Store color override by trace name
     color_overrides[selected_trace] = hex_color
 
-    # Return no update for `tab-content.children` and the updated `color-overrides`
-    return dash.no_update, color_overrides
+    print(f"Updated color overrides: {color_overrides}")
+
+    # Return updated `color-overrides`
+    return color_overrides
 
 @callback(
     Output('average-trace-dropdown', 'options'),
@@ -305,6 +309,7 @@ def update_graph(mouse_data,
     if not selected_groups:
         selected_groups = []
 
+    print('color overrides in update_graph is', color_overrides)
     if color_overrides is None:
         color_overrides = {}
 

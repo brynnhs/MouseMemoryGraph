@@ -16,6 +16,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
       - An overall average (mean and std) across all groups is computed and added as a separate trace.
     If epochs_on is a list, the function behaves as before.
     """
+    print('color overrides in generate_average_plot:', color_overrides)
     # Create common x-axis based on the epoch window and fps.
     x = np.arange(-before, after, 1 / fps)
 
@@ -69,13 +70,16 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
 
         # Now add the overall average trace (if any epochs were collected)
         if overall_on:
+            line_color = color_overrides.get('Overall Average', None)
+            line_color = hex_to_rgba(line_color, 1) if line_color else None
+
             arr_overall = np.array(overall_on)
             mean_overall = np.mean(arr_overall, axis=0)
             std_overall = np.std(arr_overall, axis=0)
             fig_on.add_trace(go.Scatter(
                 x=x, y=mean_overall, mode='lines',
                 name='Overall Average',
-                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)')
+                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)' if not line_color else line_color),
             ))
     
     fig_on.update_layout(
@@ -125,13 +129,16 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
                 hoverinfo="skip"
             ))
         if overall_off:
+            line_color = color_overrides.get('Overall Average', None)
+            line_color = hex_to_rgba(line_color, 1) if line_color else None
+        
             arr_overall = np.array(overall_off)
             mean_overall = np.mean(arr_overall, axis=0)
             std_overall = np.std(arr_overall, axis=0)
             fig_off.add_trace(go.Scatter(
                 x=x, y=mean_overall, mode='lines',
                 name='Overall Average',
-                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)'),
+                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)'  if not line_color else line_color),
             ))
             
     fig_off.update_layout(
@@ -147,18 +154,21 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
     avg_change_on = go.Figure(layout_yaxis_range=[-2, 2])
 
     for group, group_avg in avg_on.items():
+        bar_color = color_overrides.get(f"{group} bar plot", None)
+        scatter_color = color_overrides.get(f"{group} scatter plot", None)
         avg_change_on.add_trace(go.Scatter(
             x=[group] * len(group_avg),
             y=group_avg,
             mode='markers',
-            marker_color=color_map[group],
-            name=f"{group}_scatter")
+            marker_color=scatter_color if scatter_color else color_map[group],
+            name=f"{group} scatter plot")
         )
         avg_change_on.add_trace(go.Bar(
             x=[group],
             y=[np.mean(group_avg)],
-            marker_color=[color_map[group]],
+            marker_color=[bar_color if bar_color else color_map[group]],
             opacity=0.3,
+            name=f"{group} bar plot",
             error_y=dict(type='data', array=[np.std(group_avg)], visible=True)
         ))
     avg_change_on.update_layout(
@@ -173,17 +183,21 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
 
     avg_change_off = go.Figure(layout_yaxis_range=[-2, 2])
     for group, group_avg in avg_off.items():
+        bar_color = color_overrides.get(f"{group} bar plot", color_map.get(group, '#000000'))
+        scatter_color = color_overrides.get(f"{group} scatter plot", color_map.get(group, '#000000'))
         avg_change_off.add_trace(go.Scatter(
             x=[group] * len(group_avg),
             y=group_avg,
             mode='markers',
-            marker_color=color_map[group])
+            name=f"{group} scatter plot",
+            marker_color=scatter_color if scatter_color else color_map[group])
         )
         avg_change_off.add_trace(go.Bar(
             x=[group],
             y=[np.mean(group_avg)],
-            marker_color=[color_map[group]],
+            marker_color=[bar_color if bar_color else color_map[group]],
             opacity=0.3,
+            name=f"{group} bar plot",
             error_y=dict(type='data', array=[np.std(group_avg)], visible=True)
         ))
     avg_change_off.update_layout(
