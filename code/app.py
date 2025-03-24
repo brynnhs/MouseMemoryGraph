@@ -90,7 +90,7 @@ app.layout = html.Div([
     # Mouse selection dropdown (global navigation)
     html.Div([
         dcc.Dropdown(
-            id='mouse-dropdown',
+            id='group-dropdown',
             clearable=False,
             searchable=False,
             options=(
@@ -174,7 +174,7 @@ def update_app_state(n_clicks, data, input_value):
     return {}, dash.no_update, 0
 
 @app.callback(
-    Output('mouse-dropdown', 'options'),
+    Output('group-dropdown', 'options'),
     Input('app-state', 'data')
 )
 def update_dropdown_options(data):
@@ -199,9 +199,9 @@ def update_dropdown_options(data):
     return [{"label": "No data available", "value": "None"}]
 
 @app.callback(
-    Output('mouse-dropdown', 'value'),
+    Output('group-dropdown', 'value'),
     [Input('url', 'pathname')],
-    [State('mouse-dropdown', 'options')]
+    [State('group-dropdown', 'options')]
 )
 def update_dropdown_value(pathname, options):
     values = [option['value'] for option in options]
