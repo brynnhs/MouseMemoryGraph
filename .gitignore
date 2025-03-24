@@ -1,6 +1,6 @@
 # ignore .csv files
-*.csv
-```
+# *.csv
+# ```
 # ignore .pyc files
 *.pyc
 ```
