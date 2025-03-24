@@ -73,7 +73,7 @@ def load_raw_data(data_dir):
     return mouse_data, group_store
 
 
-app = dash.Dash(__name__, use_pages=True, assets_folder='../assets')
+app = dash.Dash(__name__, use_pages=True, assets_folder='assets')
 
 # Load the GroupDropdown React component globally
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")

@@ -1,10 +1,8 @@
-# in code:
+# in code folder:
 
 pyinstaller --onefile --add-data "assets:assets" --add-data "pages:pages" \
 --add-data "components:components" \
 --hidden-import dash_table --hidden-import dash_daq --hidden-import dash_local_react_components \
 --hidden-import dash.dcc --hidden-import dash.html --hidden-import dash.dependencies \
 --hidden-import dash.page_container --hidden-import dataset --hidden-import layout \
---add-data "assets/average.png:assets/average.png" --add-data "assets/footer.png:assets/footer.png" --add-data "assets/header.png:assets/header.png" \
---add-data "assets/home.png:assets/home.png" --add-data "assets/logo.png:assets/logo.png" --add-data "assets/style.css:assets/style.css" \
 --hidden-import utils --hidden-import visualize --collect-data dash_daq app.py
