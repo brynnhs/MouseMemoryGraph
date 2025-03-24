@@ -175,17 +175,20 @@ def layout(
 # Callback to populate EventSelection options from event-store
 @app.callback(
     Output('event-selection-mouse', 'options'),
-    [Input('event-store', 'data')]
+    [Input('event-store', 'data')],
+    [State('event-colors', 'data')]
 )
 def populate_event_selection_options(
-    event_store
+    event_store,
+    event_colors
     ):
     if event_store:
         # Convert event-store keys to dropdown options
         options = list(event_store.keys())
     else:
         options = []
-    return [{'label': key, 'value': key, 'text': key} for key in options]
+    return [{'label': key, 'value': key, 'text': key, 'color': event_colors.get(key, None)
+             } for key in options]
 
 # Callback to populate GroupDropdown options from group-store
 @app.callback(
@@ -234,6 +237,7 @@ def update_graph(
      event_colors
     ):
 
+    print(event_colors)
     if not mouse_data:
             return "No data available."
     mouse = pathname.split('/')[-1]

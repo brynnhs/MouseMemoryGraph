@@ -168,15 +168,20 @@ layout = html.Div([
 # Callback to populate EventSelection options from event-store
 @app.callback(
     Output('event-selection-average', 'options'),
-    [Input('event-store', 'data')]
+    [Input('event-store', 'data')],
+    [State('event-colors', 'data')]
 )
-def populate_event_selection_options(event_store):
+def populate_event_selection_options(
+    event_store,
+    event_colors
+    ):
     if event_store:
         # Convert event-store keys to dropdown options
         options = list(event_store.keys())
     else:
         options = []
-    return [{'label': key, 'value': key, 'text': key} for key in options]
+    return [{'label': key, 'value': key, 'text': key, 'color': event_colors.get(key, None)
+             } for key in options]
 
 # Callback to populate GroupDropdown options from group-store
 @app.callback(
@@ -299,7 +304,7 @@ def update_graph(mouse_data,
                  color_overrides, 
                  selected_event,
                  event_colors):
-
+    print(event_colors)
     for mouse, group in assignments.items():
         if group['group'] not in color_map.keys():
             color_map[group['group']] = group['color']

@@ -3,6 +3,7 @@ from dash import html, dcc
 from dash.dependencies import Input, Output, State
 import dash_table
 from dash_local_react_components import load_react_component
+import dash_daq as daq
 
 dash.register_page(__name__, path='/')
 app = dash.get_app()
@@ -21,11 +22,11 @@ layout = html.Div([
         html.Pre("""
         data/
         ├── mouse1/
-        │   ├── mouse1.csv
-        │   └── Behavior.csv
+        │   ├── 'mouse1_recording.csv'
+        │   └── 'mouse1_behavior.csv'
         ├── mouse2/
-        │   ├── mouse2.csv
-        │   └── Behavior.csv
+        │   ├── 'mouse2_recording.csv'
+        │   └── 'mouse2_behavior.csv'
         └── ...
         """)
     ], style={
@@ -102,14 +103,14 @@ layout = html.Div([
                 'Save Event',
                 id='save-event',
                 n_clicks=0,
+                disabled=True,
+                className='button-disabled' if True else 'button-enabled',
                 style={
                     'height': '40px',
                     'lineHeight': '40px',
                     'borderWidth': '1px',
                     'borderStyle': 'solid',
                     'borderRadius': '10px',
-                    'backgroundColor': '#007bff',
-                    'color': 'white',
                     'padding': '0 20px'
                 })
         ], style={
@@ -117,31 +118,52 @@ layout = html.Div([
             'borderRadius': '10px',
             'padding': '10px',
             'margin': '10px 0'
-        })])
+        })]),
+        html.Div(
+            id='color-picker', 
+            style={
+                'backgroundColor': 'white',
+                'borderRadius': '10px',
+                'padding': '10px',
+                'margin': '10px 0'
+            })
 ], style={'padding': '20px'})
 
 @app.callback(
     Output('event-colors', 'data'),
     [Input('event-selection', 'value'),
-     Input('event-selection', 'currentColor')],
-     [State('event-colors', 'data')]
+     Input('event-selection', 'currentColor'),
+     Input('save-event', 'n_clicks'),
+     Input('event-color-picker', 'value')],
+     [State('event-colors', 'data')],
 )
 
-def update_color_tracking(selected_event, current_color, data):
+def update_color_tracking(selected_event, current_color, n_clicks, color_picker_color, data):
     data[selected_event] = current_color
+    if color_picker_color and selected_event:
+        data[selected_event] = color_picker_color['hex']
     return data
 
 @app.callback(
     [Output('selected-event', 'data'),
      Output('add-interval', 'disabled'),
-     Output('add-interval', 'className')],
+     Output('add-interval', 'className'),
+     Output('save-event', 'disabled'),
+     Output('save-event', 'className'),
+     Output('color-picker', 'children')],
     [Input('event-selection', 'value')],
-    prevent_initial_call=True
+    [State('event-colors', 'data')],
 )
-def update_event_store(selected_event):
+def update_event_store(selected_event, event_colors):
+
     if selected_event:
-        return selected_event, False, 'button-enabled'
-    return None, True, 'button-disabled'
+        color_picker = daq.ColorPicker(
+        id='event-color-picker',
+        label='Pick a color for event',
+        value=event_colors.get(selected_event, '#000000'),
+    )
+        return selected_event, False, 'button-enabled', False, 'button-enabled', color_picker
+    return None, True, 'button-disabled', True, 'button-disabled', []
 
 @app.callback(
     [Output('selected-event-output', 'children'),
@@ -266,14 +288,18 @@ def save_event(n_clicks, hidden_event_store, event_store):
     Output('event-selection', 'options'),
     [Input('hidden-event-store', 'data'),
      Input('event-store', 'data'),
-     Input('selected-event', 'data')]
+     Input('selected-event', 'data')],
+     [State('event-colors', 'data')]
 )
-def populate_event_selection_options(hidden_event_store, event_store, selected_event):
+def populate_event_selection_options(hidden_event_store, event_store, selected_event, event_colors):
     if event_store:
         # Filter out 'null' and convert event-store keys to dropdown options
-        return [{'label': key, 'value': key, 'text': key} for key in event_store.keys() if key != 'null']
+        return [{
+            'label': key, 'value': key, 'text': key, 'color': event_colors[selected_event] if selected_event in event_colors.keys() else None
+            } for key in event_store.keys() if key != 'null']
     elif hidden_event_store:
-        return [{'label': key, 'value': key, 'text': key} for key in hidden_event_store.keys() if key != 'null']
+        return [{'label': key, 'value': key, 'text': key, 'color': event_colors[selected_event] if selected_event in event_colors.keys() else None
+                 } for key in hidden_event_store.keys() if key != 'null']
     return []
 
 @app.callback(
