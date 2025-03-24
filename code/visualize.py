@@ -1,6 +1,6 @@
 import plotly.graph_objs as go
 import numpy as np
-from utils import hex_to_rgba
+from code.utils import hex_to_rgba
 
 
 pastel_colors = [
