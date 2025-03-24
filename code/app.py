@@ -74,6 +74,7 @@ def load_raw_data(data_dir):
 
 
 app = dash.Dash(__name__, use_pages=True, assets_folder='../assets')
+server = app.server
 
 # Load the GroupDropdown React component globally
 GroupDropdown = load_react_component(app, "components", "GroupDropdown.js")

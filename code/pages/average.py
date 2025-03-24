@@ -6,14 +6,14 @@ import numpy as np
 import pandas as pd
 from dash import dcc, html, callback
 from dash.dependencies import Input, Output, State
-from dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
+from code.dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
 from dash import callback_context
 
 # Import visualization functions
-from visualize import generate_average_plot, generate_plots
+from code.visualize import generate_average_plot, generate_plots
 # Import utility for condition assignments mapping (e.g., {'mouse1': 1, 'mouse2': 3, ...})
-from utils import load_assignments
+from code.utils import load_assignments
 
 dash.register_page(__name__, path='/average')
 app = dash.get_app()
