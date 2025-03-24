@@ -19,9 +19,6 @@ from code.utils import load_assignments, save_assignments
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 
-# Global container for mouse condition assignments
-mouse_assignments = load_assignments()
-
 dash.register_page(__name__, path_template='/mouse/<id>')
 app = dash.get_app()
 
@@ -47,8 +44,8 @@ def load_raw_data(
     # Convert events dictionary to a hashable type (tuple of sorted key-value pairs)
     events = tuple(sorted(events.items())) if events else None
 
-    photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
-    behavior_path = os.path.join(data_dir, mouse, "Behavior.csv")
+    photometry_path = os.path.join(data_dir, mouse, f"{mouse}_recording.csv")
+    behavior_path = os.path.join(data_dir, mouse, f"{mouse}_behavior.csv")
     if os.path.exists(photometry_path) and os.path.exists(behavior_path):
         photometry = PhotometryDataset(
             photometry_path,
@@ -79,7 +76,7 @@ def layout(
         html.H2(f'Mouse {mouse}'),
         html.Div([
             html.Div([
-                GroupDropdown(id='group-dropdown', value=1)
+                GroupDropdown(id='group-dropdown', value='000000')
             ], style={'margin-bottom': '10px'}),
             html.Div([
                 html.Label("Filter out epochs:"),
@@ -161,59 +158,53 @@ def layout(
             'margin-bottom': '20px',
             'background-color': 'white',
             'border-radius': '10px',
-            'padding': '20px'
+            'padding': '20px',
+            'flex-wrap': 'wrap'
         }),
         ], style={'align-items': 'center', 'justify-content': 'center'}),
-        html.Div(id='mouse-content')
+        # Add the loading spinner here
+        dcc.Loading(
+            id="loading-spinner",
+            type="circle",  # Spinner type (circle, dot, etc.)
+            children=html.Div(id='mouse-content'),  # Wrap the content in the loading spinner
+            style={'margin-top': '20px'},
+            overlay_style={'height': '500px'}
+        )
     ])
 
 # Callback to populate EventSelection options from event-store
 @app.callback(
     Output('event-selection-mouse', 'options'),
-    [Input('event-store', 'data')]
+    [Input('event-store', 'data')],
+    [State('event-colors', 'data')]
 )
 def populate_event_selection_options(
-    event_store
+    event_store,
+    event_colors
     ):
     if event_store:
         # Convert event-store keys to dropdown options
         options = list(event_store.keys())
     else:
         options = []
-    return [{'label': key, 'value': key, 'text': key} for key in options]
+    return [{'label': key, 'value': key, 'text': key, 'color': event_colors.get(key, None)
+             } for key in options]
 
-@callback(
-    Output('mouse-data-store', 'data'),
-    [Input('mouse-data-store', 'data'), 
-     Input('url', 'pathname'), 
-     Input('selected-folder', 'data'), 
-     Input('event-store', 'data')]
+# Callback to populate GroupDropdown options from group-store
+@app.callback(
+    Output('group-dropdown', 'options'),
+    [Input('group-store', 'data')]
 )
-def load_mouse_data(
-    data, 
-    pathname, 
-    folder, 
-    events
+def populate_group_dropdown_options(
+    group_store
     ):
-    mouse = pathname.split('/')[-1]
-    if not data:
-        data = {}
-
-    # Safely convert events to a hashable type
-    try:
-        events_hashable = tuple(sorted(events.items())) if isinstance(events, dict) else None
-    except AttributeError:
-        events_hashable = None
-
-    # Check if data[mouse] exists and is not None before accessing its attributes
-    if mouse in data.keys() and data[mouse] is not None and events_hashable == data[mouse].get('events'):
-        print('Found mouse data in store:', mouse)
-        return data
+    if group_store:
+        # Convert group-store keys to dropdown options
+        options = list(group_store.values())
     else:
-        print('load_mouse_data', pathname, folder)
-        mouse_data = load_raw_data(folder, mouse, events_hashable)
-        data[mouse] = mouse_data
-        return data
+        options = []
+    return [{'label': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
+
 
 @callback(
     Output('mouse-content', 'children'),
@@ -228,6 +219,7 @@ def load_mouse_data(
      Input('graph-title', 'value'),
      Input('x-axis-title', 'value'),
      Input('y-axis-title', 'value')],
+     [State('event-colors', 'data')]
 )
 
 def update_graph(
@@ -241,12 +233,13 @@ def update_graph(
      y_axis_step,
      graph_title,
      x_axis_title,
-     y_axis_title
+     y_axis_title,
+     event_colors
     ):
 
+    print(event_colors)
     if not mouse_data:
             return "No data available."
-    print('selected_event:', selected_event)
     mouse = pathname.split('/')[-1]
     mouse_data = mouse_data[mouse]
     merged = MergeDatasets.from_dict(mouse_data)
@@ -274,12 +267,14 @@ def update_graph(
                                      merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on),
                                      merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on),
                                      selected_event,
+                                     event_colors,
                                      name='ACC')
         adn_future = executor.submit(generate_plots, merged, merged.df, freezing_intervals, fps, seconds_before, seconds_after,
                                      epoch_data['ADN']['on'], epoch_data['ADN']['off'],
                                      merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on),
                                      merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on),
                                      selected_event,
+                                     event_colors,
                                      name='ADN')
 
         acc_full, acc_interval_on, acc_interval_off, acc_change = acc_future.result()
@@ -287,10 +282,10 @@ def update_graph(
 
     acc_separated = generate_separated_plot(merged, 'ACC', 200,
                                              merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on),
-                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event)
+                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event, event_colors)
     adn_separated = generate_separated_plot(merged, 'ADN', 200,
                                              merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on),
-                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event)
+                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event, event_colors)
 
     # Update axis steps and layout titles for all figures (not x axis for bar plots)
     figure_list = [
@@ -423,32 +418,37 @@ def update_graph(
 # Combined callback for handling both dropdown changes and URL updates.
 @app.callback(
     Output('group-dropdown', 'value'),
-    [Input('group-dropdown', 'value'),
-     Input('url', 'pathname')],
-    [State('group-dropdown', 'value')]
+    [Input('group-store', 'data'),
+     Input('url', 'pathname')]
 )
-def manage_mouse_assignment(
-     new_value, 
-     pathname, 
-     current_value
-    ):
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        # On initial load, use the stored assignment.
-        mouse_id = pathname.split('/')[-1]
-        return mouse_assignments.get(mouse_id, 'default_group')
-    triggered_id = ctx.triggered[0]['prop_id']
-    if triggered_id.startswith('group-dropdown'):
-        # User changed the dropdown value.
-        mouse_id = pathname.split('/')[-1]
-        mouse_assignments[mouse_id] = new_value
-        save_assignments(mouse_assignments)
-        return new_value
-    elif triggered_id.startswith('url'):
-        # URL changed; load the saved assignment.
-        mouse_id = pathname.split('/')[-1]
-        return mouse_assignments.get(mouse_id, 'default_group')
-    return current_value
+def manage_mouse_assignment(mouse_assignments, pathname):
+    """
+    Populate the dropdown with the stored assignment for the mouse when the page loads.
+    """
+    if not mouse_assignments:
+        return None  # No assignment exists, so nothing is selected
+    mouse_id = pathname.split('/')[-1]
+    stored_assignment = mouse_assignments.get(mouse_id, {})
+    return stored_assignment.get('group')  # Return the group if it exists, otherwise None
+
+@app.callback(
+    Output('group-store', 'data'),
+    [Input('group-store', 'data'),
+     Input('group-dropdown', 'value'),
+     Input('group-dropdown', 'currentColor'),
+     Input('url', 'pathname')],
+)
+def update_mouse_assignment(mouse_assignments, new_value, color, pathname):
+    """
+    Update the group-store with the selected group and color for the current mouse.
+    """
+    mouse_id = pathname.split('/')[-1]
+    if not mouse_assignments:
+        mouse_assignments = {}
+    if new_value and color:  # Only update if a new value is selected
+        mouse_assignments[mouse_id] = {'group': new_value, 'color': color}
+
+    return mouse_assignments
 
 @app.callback(
     Output('acc-trace-dropdown', 'options'),
@@ -515,8 +515,10 @@ def update_adn_trace_options(
     fig_change,
     fig_separated
 ):
+    shapes = None
     if selected_graph == 'full':
         fig = fig_full
+        shapes = fig.get('layout', {}).get('shapes', [])
     elif selected_graph == 'interval_on':
         fig = fig_interval_on
     elif selected_graph == 'interval_off':
@@ -535,6 +537,12 @@ def update_adn_trace_options(
     for i, trace in enumerate(fig['data']):
         trace_name = trace.get('name', f"Trace {i+1}")
         options.append({'label': trace_name, 'value': i})
+    #if shapes:
+    #    # get all unique names for shapes
+    #    shape_names = set([shape.get('name', 'None') for shape in shapes])
+    #    for i, shape_name in enumerate(shape_names):
+    #        options.append({'label': f"{shape_name}", 'value': shape_name})
+
     return options
 
 
@@ -664,11 +672,18 @@ def update_adn_color(color_value, selected_graph, selected_trace,
     new_color = f"rgba({r},{g},{b},{a})"
 
     if selected_graph == 'full':
-        if fig_full and 'data' in fig_full and len(fig_full['data']) > selected_trace:
-            if 'line' in fig_full['data'][selected_trace]:
-                fig_full['data'][selected_trace]['line']['color'] = new_color
-            else:
-                fig_full['data'][selected_trace]['marker']['color'] = new_color
+        if type(selected_trace) == str:
+            if fig_full and 'layout' in fig_full and 'shapes' in fig_full['layout']:
+                for shape in fig_full['layout']['shapes']:
+                    if shape.get('name') == selected_trace:
+                        shape['line']['color'] = new_color
+                        shape['fillcolor'] = new_color
+        else:
+            if fig_full and 'data' in fig_full and len(fig_full['data']) > selected_trace:
+                if 'line' in fig_full['data'][selected_trace]:
+                    fig_full['data'][selected_trace]['line']['color'] = new_color
+                else:
+                    fig_full['data'][selected_trace]['marker']['color'] = new_color
         return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
 
     elif selected_graph == 'interval_on':

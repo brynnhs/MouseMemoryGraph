@@ -34,12 +34,16 @@ export default function EventSelection(props) {
         const newEvents = [...events, newEvent];
         setEvents(newEvents);
         setNewEventName('');
-        setProps({ value: newEvent.value });
-        setDashOptions(newEvents); // Update Dash options
+        setProps({ value: newEvent.value, currentColor: newEvent.color }); // Update currentColor externally
     }
-
+    
     function onChange(eventValue) {
-        setProps({ value: eventValue });
+        const selectedEvent = events.find(event => event.value === eventValue);
+        const selectedColor = selectedEvent?.color || null;
+        setProps({
+            value: eventValue,
+            currentColor: selectedColor // Update currentColor externally
+        });
         setDropdownOpen(false);
     }
 

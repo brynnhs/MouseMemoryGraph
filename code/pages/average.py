@@ -8,6 +8,7 @@ from dash import dcc, html, callback
 from dash.dependencies import Input, Output, State
 from code.dataset import PhotometryDataset, BehaviorDataset, MergeDatasets
 from dash_local_react_components import load_react_component
+from dash import callback_context
 
 # Import visualization functions
 from code.visualize import generate_average_plot, generate_plots
@@ -17,23 +18,24 @@ from code.utils import load_assignments
 dash.register_page(__name__, path='/average')
 app = dash.get_app()
 
-# Determine the base path
-if getattr(sys, 'frozen', False):
-    base_path = sys._MEIPASS
-else:
-    base_path = os.path.dirname(os.path.abspath(__file__))
-
 color_map = {
     'Recent': '#FFB3BA',
     'Remote': '#FFDFBA',
     'Control': '#FFFFBA'
 }
 
+# Determine the base path
+if getattr(sys, 'frozen', False):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
 def load_raw_data(data_dir, mouse, events):
     """Load raw merged data for all mice and store in mouse_data."""
     mouse_data = {}
-    photometry_path = os.path.join(data_dir, mouse, f"{mouse}.csv")
-    behavior_path = os.path.join(data_dir, mouse, "Behavior.csv")
+    photometry_path = os.path.join(data_dir, mouse, f"{mouse.split('_')[0]}_recording.csv.csv")
+    behavior_path = os.path.join(data_dir, mouse, f"{mouse.split('_')[0]}_behavior.csv.csv")
+    print('Loading data', mouse)
     if os.path.exists(photometry_path) and os.path.exists(behavior_path):
         photometry = PhotometryDataset(
             photometry_path,
@@ -48,10 +50,13 @@ def load_raw_data(data_dir, mouse, events):
         photometry.normalize_signal()
         merged = MergeDatasets(photometry, behavior)
         if events:
+            # Ensure events are added only once
+            added_events = set()
             for name, intervals in events.items():
-                merged.add_event(name, intervals)
+                if name not in added_events:
+                    merged.add_event(name, intervals)
+                    added_events.add(name)
         return merged.to_dict()
-    print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
 
 # Load condition assignments mapping: mouse id -> condition group
 condition_assignments = load_assignments()
@@ -65,7 +70,7 @@ layout = html.Div([
     dcc.Store(id='color-overrides', data={}),
     # Include the group selection dropdown (MultiSelect)
     html.Div([
-        GroupSelection(id='group-selection', value=['Recent', 'Remote'])  # Initially, no groups selected
+        GroupSelection(id='group-selection', value=[])  # Initially, no groups selected
     ], style={'width': '100%', 'text-align': 'left', 'margin-bottom': '20px'}),
     
     # Numeric inputs for the epoch window
@@ -125,7 +130,8 @@ layout = html.Div([
         'margin-bottom': '20px',
         'background-color': 'white',
         'border-radius': '10px',
-        'padding': '20px'
+        'padding': '20px',
+        'flex-wrap': 'wrap'
     }),
     html.Div(id='tab-content'),
     html.Div([
@@ -136,7 +142,11 @@ layout = html.Div([
             {'label': 'ACC Onset', 'value': 'accavgon'},
             {'label': 'ACC Offset', 'value': 'accavgoff'},
             {'label': 'ADN Onset', 'value': 'adnavgon'},
-            {'label': 'ADN Offset', 'value': 'adnavgoff'}
+            {'label': 'ADN Offset', 'value': 'adnavgoff'},
+            {'label': 'ACC Onset Change', 'value': 'accon_change'},
+            {'label': 'ACC Offset Change', 'value': 'accoff_change'},
+            {'label': 'ADN Onset Change', 'value': 'adnon_change'},
+            {'label': 'ADN Offset Change', 'value': 'adnoff_change'}
         ],
         value='accavgon',
         placeholder="Select an average plot"
@@ -158,53 +168,80 @@ layout = html.Div([
 # Callback to populate EventSelection options from event-store
 @app.callback(
     Output('event-selection-average', 'options'),
-    [Input('event-store', 'data')]
+    [Input('event-store', 'data')],
+    [State('event-colors', 'data')]
 )
-def populate_event_selection_options(event_store):
+def populate_event_selection_options(
+    event_store,
+    event_colors
+    ):
     if event_store:
         # Convert event-store keys to dropdown options
         options = list(event_store.keys())
     else:
         options = []
-    return [{'label': key, 'value': key, 'text': key} for key in options]
+    return [{'label': key, 'value': key, 'text': key, 'color': event_colors.get(key, None)
+             } for key in options]
+
+# Callback to populate GroupDropdown options from group-store
+@app.callback(
+    Output('group-selection', 'options'),
+    [Input('group-store', 'data')]
+)
+def populate_group_dropdown_options(
+    group_store
+    ):
+    if group_store:
+        # Convert group-store keys to dropdown options
+        options = list(group_store.values())
+    else:
+        options = []
+    return [{'key': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
 
 @callback(
-    Output('mouse-data-store', 'data', allow_duplicate=True),
-    [Input('mouse-data-store', 'data'), 
-     Input('url', 'pathname'), 
-     Input('selected-folder', 'data'), 
-     Input('app-state', 'data'), 
-     Input('event-store', 'data')],
-    prevent_initial_call=True
+    Output('mouse-data-store', 'data'),
+    [Input('selected-folder', 'data'), 
+     Input('event-store', 'data'),
+     Input('app-state', 'data')],
+     [State('mouse-data-store', 'data')]
 )
 
-def load_mouse_data(data, pathname, folder, app_state, events):
-    mouse_data = app_state.get('mouse_data', {})
+def load_mouse_data(folder, events, app_state, data):
+
     if not data:
         data = {}
 
+    # Ensure app_state is not None
+    if not app_state:
+        return data
+    # Ensure the callback only runs for the `/mouse/<id>` path
+    mouse_data = app_state.get('mouse_data', {})
+
     for mouse in mouse_data:
         # Check if data[mouse] is None or if events do not match
-        if mouse not in data.keys() or not data[mouse] or events != data[mouse].get('events', None):
+        if mouse not in data.keys() or not data[mouse]: #or events != data[mouse].get('events', None):
+            mouse_data = load_raw_data(folder, mouse, events)
+            data[mouse] = mouse_data
+        elif events and events != [] and events != {}:
+            ctx = callback_context
             mouse_data = load_raw_data(folder, mouse, events)
             data[mouse] = mouse_data
         else:
-            print('')
+            pass
     return data
 
+
 @callback(
-    Output('tab-content', 'children', allow_duplicate=True),
     Output('color-overrides', 'data'),
     [Input('average-color-picker', 'value')],
     [State('average-plot-dropdown', 'value'),
      State('average-trace-dropdown', 'value'),
      State('color-overrides', 'data')],
-    prevent_initial_call=True
 )
 def update_color_overrides(selected_color, selected_plot, selected_trace, color_overrides):
     """Update the color map with the selected color for a specific trace."""
     if not selected_plot or not selected_trace or not selected_color:
-        return dash.no_update, color_overrides
+        return color_overrides
 
     if not color_overrides:
         color_overrides = {}
@@ -216,8 +253,10 @@ def update_color_overrides(selected_color, selected_plot, selected_trace, color_
     # Store color override by trace name
     color_overrides[selected_trace] = hex_color
 
-    # Return no update for `tab-content.children` and the updated `color-overrides`
-    return dash.no_update, color_overrides
+    print(f"Updated color overrides: {color_overrides}")
+
+    # Return updated `color-overrides`
+    return color_overrides
 
 @callback(
     Output('average-trace-dropdown', 'options'),
@@ -243,6 +282,7 @@ def update_trace_dropdown(selected_plot, stored_figures):
     [Output('tab-content', 'children'),
     Output('stored-figures', 'data')],
     [Input('mouse-data-store', 'data'),
+     Input('group-store', 'data'),
      Input('seconds-before', 'value'),
      Input('seconds-after', 'value'),
      Input('x-axis-step', 'value'),
@@ -251,8 +291,10 @@ def update_trace_dropdown(selected_plot, stored_figures):
      Input('boolean-switch', 'on'),
      Input('color-overrides', 'data'),
      Input('event-selection-average', 'value')],
+     [State('event-colors', 'data')]
 )
 def update_graph(mouse_data, 
+                 assignments,
                  seconds_before, 
                  seconds_after, 
                  x_axis_step,
@@ -260,17 +302,21 @@ def update_graph(mouse_data,
                  selected_groups, 
                  on, 
                  color_overrides, 
-                 selected_event):
+                 selected_event,
+                 event_colors):
+    print(event_colors)
+    for mouse, group in assignments.items():
+        if group['group'] not in color_map.keys():
+            color_map[group['group']] = group['color']
+    assignments = {mouse: group['group'] for mouse, group in assignments.items()}
 
     # Default to all groups if none selected.
     if not selected_groups:
         selected_groups = []
 
+    print('color overrides in update_graph is', color_overrides)
     if color_overrides is None:
         color_overrides = {}
-
-    # Reload condition assignments mapping: mouse id -> group
-    assignments = load_assignments()
 
     # Initialize dictionaries for each sensor and epoch type.
     acc_on_dict, acc_off_dict, adn_on_dict, adn_off_dict = {}, {}, {}, {}
@@ -290,6 +336,7 @@ def update_graph(mouse_data,
 
         # Precompute intervals and epochs
         intervals = merged.get_freezing_intervals() if selected_event == 'freezing' else merged.get_freezing_intervals(0, selected_event)
+        color = None if selected_event == 'freezing' else event_colors[selected_event]
 
         if fps is None:
             fps = merged.fps
@@ -319,8 +366,8 @@ def update_graph(mouse_data,
         return html.Div("No data available for the selected condition groups."), {}
     
     # Generate the average plots using dictionaries.
-    acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_overrides)
-    adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_overrides)
+    acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_map, color, color_overrides)
+    adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_map, color, color_overrides)
     
     # Update axis tick step for all figures
     for fig in [acc_on_fig, acc_off_fig, adn_on_fig, adn_off_fig, acc_on_change, acc_off_change, adn_on_change, adn_off_change]:

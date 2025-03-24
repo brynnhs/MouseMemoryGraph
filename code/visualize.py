@@ -1,17 +1,13 @@
 import plotly.graph_objs as go
 import numpy as np
+from utils import hex_to_rgba
 
-color_map = {
-    'Recent': '#FFB3BA',
-    'Remote': '#FFDFBA',
-    'Control': '#FFFFBA'
-}
 
 pastel_colors = [
     '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BAFF', '#FFBAE1', '#BAFFD4'
 ]
 
-def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before, after, fps, color_overrides=None):
+def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before, after, fps, color_map, event_color=None, color_overrides=None):
     """
     Generate average plots for ON and OFF epochs.
     
@@ -20,6 +16,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
       - An overall average (mean and std) across all groups is computed and added as a separate trace.
     If epochs_on is a list, the function behaves as before.
     """
+    print('color overrides in generate_average_plot:', color_overrides)
     # Create common x-axis based on the epoch window and fps.
     x = np.arange(-before, after, 1 / fps)
 
@@ -39,6 +36,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
             arr = np.array(group_epochs)  # shape: (n_epochs, len(x))
             mean_on = np.mean(arr, axis=0)
             std_on = np.std(arr, axis=0)
+
             
             # Collect data for overall average
             overall_on.extend(group_epochs)
@@ -53,32 +51,35 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
                 name=trace_name,
                 line=dict(color=line_color)
             ))
+            fig_on.add_trace(go.Scatter(
+                x=x, y=mean_on + std_on,
+                mode='lines',
+                line=dict(color='rgba(0,0,0,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+            fig_on.add_trace(go.Scatter(
+                x=x, y=mean_on - std_on,
+                mode='lines',
+                fill='tonexty',
+                fillcolor=hex_to_rgba(line_color, 0.3),
+                line=dict(color='rgba(0,0,0,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
 
         # Now add the overall average trace (if any epochs were collected)
         if overall_on:
+            line_color = color_overrides.get('Overall Average', None)
+            line_color = hex_to_rgba(line_color, 1) if line_color else None
+
             arr_overall = np.array(overall_on)
             mean_overall = np.mean(arr_overall, axis=0)
             std_overall = np.std(arr_overall, axis=0)
             fig_on.add_trace(go.Scatter(
                 x=x, y=mean_overall, mode='lines',
                 name='Overall Average',
-                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)')
-            ))
-            fig_on.add_trace(go.Scatter(
-                x=x, y=mean_overall + std_overall,
-                mode='lines',
-                line=dict(color='rgba(0,0,0,0)'),
-                showlegend=False,
-                hoverinfo="skip"
-            ))
-            fig_on.add_trace(go.Scatter(
-                x=x, y=mean_overall - std_overall,
-                mode='lines',
-                fill='tonexty',
-                fillcolor='rgba(128,128,128,0.1)',
-                line=dict(color='rgba(0,0,0,0)'),
-                showlegend=False,
-                hoverinfo="skip"
+                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)' if not line_color else line_color),
             ))
     
     fig_on.update_layout(
@@ -88,7 +89,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(10, 10, 10, 0.02)'
     )
-    fig_on.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+    fig_on.add_vrect(x0=0, x1=after, fillcolor=event_color if event_color else 'lightblue', opacity=0.3, layer='below', line_width=0)
     
     # ----- Offset Plot -----
     fig_off = go.Figure()
@@ -100,6 +101,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
                 continue
             arr = np.array(group_epochs)
             mean_off = np.mean(arr, axis=0)
+            std_off = np.std(arr, axis=0)
             overall_off.extend(group_epochs)
 
             trace_name = f'Group {group}'
@@ -110,30 +112,33 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
                 name=trace_name,
                 line=dict(color=line_color)
             ))
+            fig_off.add_trace(go.Scatter(
+                x=x, y=mean_off + std_off,
+                mode='lines',
+                line=dict(color='rgba(0,0,0,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
+            fig_off.add_trace(go.Scatter(
+                x=x, y=mean_off - std_off,
+                mode='lines',
+                fill='tonexty',
+                fillcolor=hex_to_rgba(line_color, 0.3),
+                line=dict(color='rgba(0,0,0,0)'),
+                showlegend=False,
+                hoverinfo="skip"
+            ))
         if overall_off:
+            line_color = color_overrides.get('Overall Average', None)
+            line_color = hex_to_rgba(line_color, 1) if line_color else None
+        
             arr_overall = np.array(overall_off)
             mean_overall = np.mean(arr_overall, axis=0)
             std_overall = np.std(arr_overall, axis=0)
             fig_off.add_trace(go.Scatter(
                 x=x, y=mean_overall, mode='lines',
                 name='Overall Average',
-                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)'),
-            ))
-            fig_off.add_trace(go.Scatter(
-                x=x, y=mean_overall + std_overall,
-                mode='lines',
-                line=dict(color='rgba(0,0,0,0)'),
-                showlegend=False,
-                hoverinfo="skip"
-            ))
-            fig_off.add_trace(go.Scatter(
-                x=x, y=mean_overall - std_overall,
-                mode='lines',
-                fill='tonexty',
-                fillcolor='rgba(128,128,128,0.1)',
-                line=dict(color='rgba(0,0,0,0)'),
-                showlegend=False,
-                hoverinfo="skip"
+                line=dict(width=3, dash='dash', color='rgba(128,128,128,0.8)'  if not line_color else line_color),
             ))
             
     fig_off.update_layout(
@@ -143,23 +148,27 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(10, 10, 10, 0.02)'
     )
-    fig_off.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+    fig_off.add_vrect(x0=-before, x1=0, fillcolor=event_color if event_color else 'lightblue', opacity=0.3, layer='below', line_width=0)
 
     # average change plot
     avg_change_on = go.Figure(layout_yaxis_range=[-2, 2])
 
     for group, group_avg in avg_on.items():
+        bar_color = color_overrides.get(f"{group} bar plot", None)
+        scatter_color = color_overrides.get(f"{group} scatter plot", None)
         avg_change_on.add_trace(go.Scatter(
             x=[group] * len(group_avg),
             y=group_avg,
             mode='markers',
-            marker_color=color_map[group])
+            marker_color=scatter_color if scatter_color else color_map[group],
+            name=f"{group} scatter plot")
         )
         avg_change_on.add_trace(go.Bar(
             x=[group],
             y=[np.mean(group_avg)],
-            marker_color=[color_map[group]],
+            marker_color=[bar_color if bar_color else color_map[group]],
             opacity=0.3,
+            name=f"{group} bar plot",
             error_y=dict(type='data', array=[np.std(group_avg)], visible=True)
         ))
     avg_change_on.update_layout(
@@ -174,17 +183,21 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
 
     avg_change_off = go.Figure(layout_yaxis_range=[-2, 2])
     for group, group_avg in avg_off.items():
+        bar_color = color_overrides.get(f"{group} bar plot", color_map.get(group, '#000000'))
+        scatter_color = color_overrides.get(f"{group} scatter plot", color_map.get(group, '#000000'))
         avg_change_off.add_trace(go.Scatter(
             x=[group] * len(group_avg),
             y=group_avg,
             mode='markers',
-            marker_color=color_map[group])
+            name=f"{group} scatter plot",
+            marker_color=scatter_color if scatter_color else color_map[group])
         )
         avg_change_off.add_trace(go.Bar(
             x=[group],
             y=[np.mean(group_avg)],
-            marker_color=[color_map[group]],
+            marker_color=[bar_color if bar_color else color_map[group]],
             opacity=0.3,
+            name=f"{group} bar plot",
             error_y=dict(type='data', array=[np.std(group_avg)], visible=True)
         ))
     avg_change_off.update_layout(
@@ -199,7 +212,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
     
     return fig_on, fig_off, avg_change_on, avg_change_off
 
-def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, event, name='ACC'):
+def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, event, event_colors, name='ACC'):
     """
     Generate detailed plots for the given sensor:
       - The full signals figure 
@@ -239,21 +252,13 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
     ))
     fig.update_layout(title=f'{name} Signal, Control, and zdFF', xaxis_title='Time (s)', yaxis_title='Value')
     
-    # Dummy traces for legend
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'freezing bouts in analysis', 
-        marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
-    ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'all freezing bouts', 
-        marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
-    ))
     
     # Highlight all freezing intervals
     for on, off in freezing_intervals:
         on_sec = on / fps
         off_sec = off / fps
-        fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+        fig.add_vrect(name='freezing bouts', x0=on_sec, x1=off_sec, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0,
+                      legendgroup='freezing bouts', showlegend=True)
 
     for i, e in enumerate(object.events):
         if e != 'freezing':
@@ -261,13 +266,8 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
             for on, off in event_intervals:
                 on_sec = on / fps
                 off_sec = off / fps
-                fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor=pastel_colors[0], opacity=0.2, layer='below', line_width=0)
-            # Check if a trace with the same name already exists
-            if not any(trace.name == f'Event {e}' for trace in fig.data):
-                fig.add_trace(go.Scatter(
-                    x=[None], y=[None], mode='markers', name=f'Event {e}', 
-                    marker=dict(color=pastel_colors[0], size=7, symbol='square', opacity=0.3)
-                ))
+                fig.add_vrect(name=f'{e}', x0=on_sec, x1=off_sec, fillcolor=event_colors[e], opacity=0.2, layer='below', line_width=0,
+                              legendgroup=f'{e}', showlegend=True)
     
     # Build the interval_on and interval_off figures
     aggregate_on = []
@@ -282,8 +282,11 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
         ))
         aggregate_on.append(y_epoch)
         fig.add_vrect(
-            x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue' if event=='freezing' else pastel_colors[0], 
-            opacity=0.2, layer='below', line_width=0
+            x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue' if event=='freezing' else event_colors[event], 
+            opacity=0.2, layer='below', line_width=0,
+            name=f'{e}' if event != 'freezing' else 'freezing bouts in analysis',
+            legendgroup='freezing bouts in analysis' if event=='freezing' else f'{e}',
+            showlegend=True
         )
     
     for i, inter in enumerate(epochs_acc_off):
@@ -312,7 +315,8 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
             x=x_epoch, y=mean_on - std_on, fill='tonexty', hoverinfo="skip",
             fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
         ))
-        interval_on.add_vrect(x0=0, x1=after, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+        interval_on.add_vrect(x0=0, x1=after, fillcolor='lightblue' if event=='freezing' else event_colors[event], 
+                              opacity=0.3, layer='below', line_width=0)
     
     # Compute mean & std for offsets
     aggregate_off = np.array(aggregate_off)
@@ -331,7 +335,8 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
             x=x_epoch, y=mean_off - std_off, fill='tonexty', hoverinfo="skip",
             fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
         ))
-        interval_off.add_vrect(x0=-before, x1=0, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0)
+        interval_off.add_vrect(x0=-before, x1=0, fillcolor='lightblue' if event=='freezing' else event_colors[event],
+                               opacity=0.3, layer='below', line_width=0)
     
     # Bar plot for the zdFF change
     if avg_on and avg_off:
@@ -341,20 +346,31 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
             x=['Onset'] * len(avg_on[:, 2]),
             y=avg_on[:, 2],
             mode='markers',
+            name='Onset scatter',
             marker_color='blue'
         ))
         avg_change.add_trace(go.Scatter(
             x=['Offset'] * len(avg_off[:, 2]),
             y=avg_off[:, 2],
             mode='markers',
+            name='Offset scatter',
             marker_color='lightblue'
         ))
         avg_change.add_trace(go.Bar(
-            x=['Onset', 'Offset'],
-            y=[np.mean(avg_on[:, 2]), np.mean(avg_off[:, 2])],
-            marker_color=['blue', 'lightblue'],
+            x=['Onset'],
+            y=[np.mean(avg_on[:, 2])],
+            marker_color=['blue'],
             opacity=0.3,
-            error_y=dict(type='data', array=[np.std(avg_on[:, 2]), np.std(avg_off[:, 2])], visible=True)
+            error_y=dict(type='data', array=[np.std(avg_on[:, 2])], visible=True),
+            name='Onset bar'
+        ))
+        avg_change.add_trace(go.Bar(
+            x=['Offset'],
+            y=[np.mean(avg_off[:, 2])],
+            marker_color=['lightblue'],
+            opacity=0.3,
+            error_y=dict(type='data', array=[np.std(avg_off[:, 2])], visible=True),
+            name='Offset bar'
         ))
         avg_change.update_layout(title=f'{name} zdFF Change', xaxis_title='Event', yaxis_title='zdFF')
     
@@ -385,7 +401,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
     
     return fig, interval_on, interval_off, avg_change
 
-def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fps, freezing_intervals, seconds_after, event):
+def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fps, freezing_intervals, seconds_after, event, event_colors):
     """
     Generate a separated plot for a given sensor (e.g., 'ACC' or 'ADN').
 
@@ -433,16 +449,6 @@ def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fp
         opacity=0.5
     ))
 
-    # Add dummy legend traces for freezing shading
-    # Dummy traces for legend
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'freezing bouts in analysis', 
-    marker=dict(color='blue', size=7, symbol='square', opacity=0.2)
-    ))
-    fig.add_trace(go.Scatter(
-        x=[None], y=[None], mode='markers', name=f'all freezing bouts', 
-        marker=dict(color='lightblue', size=7, symbol='square', opacity=0.3)
-    ))
 
     for i, e in enumerate(object.events):
         if e != 'freezing':
@@ -450,13 +456,8 @@ def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fp
             for on, off in event_intervals:
                 on_sec = on / fps
                 off_sec = off / fps
-                fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor=pastel_colors[0], opacity=0.2, layer='below', line_width=0)
-            # Check if a trace with the same name already exists
-            if not any(trace.name == f'Event {e}' for trace in fig.data):
-                fig.add_trace(go.Scatter(
-                    x=[None], y=[None], mode='markers', name=f'Event {e}', 
-                    marker=dict(color=pastel_colors[0], size=7, symbol='square', opacity=0.3)
-                ))
+                fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor=event_colors[e], opacity=0.2, layer='below', line_width=0,
+                              legendgroup=f'{e}', showlegend=True, name=f'{e}')
      
     # (A) Shade all freezing intervals with lightblue (opacity 0.3)
     for on_time, off_time in freezing_intervals:
@@ -466,16 +467,22 @@ def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fp
             fillcolor='lightblue',
             opacity=0.3,
             layer='below',
-            line_width=0
+            line_width=0,
+            legendgroup='freezing bouts',
+            showlegend=True,
+            name='freezing bouts'
         )
     for inter in epochs_on:
         fig.add_vrect(
             x0=inter[1][0] / fps, 
             x1=inter[1][1] / fps, 
-            fillcolor='blue' if event=='freezing' else pastel_colors[0], 
+            fillcolor='blue' if event=='freezing' else event_colors[event], 
             opacity=0.2, 
             layer='below', 
-            line_width=0
+            line_width=0,
+            legendgroup='freezing bouts in analysis' if event=='freezing' else f'{event}',
+            showlegend=True,
+            name='freezing bouts in analysis'
         )
      
     overall_min = min(signal_percent.min(), control_percent.min()) - 5

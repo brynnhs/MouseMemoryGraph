@@ -3,9 +3,33 @@ import sys
 import time
 import webbrowser
 import dash
+import random
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 from dash_local_react_components import load_react_component
+
+pastel_colors = [
+    "#FFB3BA",  # Light Pink
+    "#FFDFBA",  # Peach
+    "#FFFFBA",  # Light Yellow
+    "#BAFFC9",  # Mint Green
+    "#BAE1FF",  # Light Blue
+    "#D7BDE2",  # Lavender
+    "#FAD7A0",  # Pastel Orange
+    "#F5B7B1",  # Soft Coral
+    "#AED6F1",  # Sky Blue
+    "#A9DFBF",  # Pastel Green
+    "#F9E79F",  # Pale Yellow
+    "#F5CBA7",  # Apricot
+    "#D2B4DE",  # Soft Purple
+    "#A3E4D7",  # Aqua
+    "#F7DC6F",  # Lemon
+    "#F1948A",  # Salmon
+    "#D5DBDB",  # Light Gray
+    "#FADBD8",  # Blush
+    "#D4E6F1",  # Powder Blue
+    "#D6EAF8"   # Ice Blue
+]
 
 def get_color_hex(color_value):
     """
@@ -30,13 +54,23 @@ else:
 def load_raw_data(data_dir):
     """Load raw merged data for all mice and store in mouse_data."""
     mouse_data = {}
+    group_store = {}
+    _color = {}
     # Detect available mouse folders
     mouse_folders = [d for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
     for mouse in mouse_folders:
             mouse_data[mouse] = []
-    print(f"Loaded raw data for {len(mouse_data)} mice: {list(mouse_data.keys())}")
+            if '_' in mouse:
+                group = mouse.split('_')[-1]
+                if group in _color.values():
+                    color = _color[group]
+                else:
+                    # pick random color
+                    color = random.choice(pastel_colors)
+                    _color[group] = color
+                group_store[mouse] = {'group': group, 'color': color}
 
-    return mouse_data
+    return mouse_data, group_store
 
 
 app = dash.Dash(__name__, use_pages=True, assets_folder='../assets')
@@ -77,10 +111,12 @@ app.layout = html.Div([
     ], style={'text-align': 'center', 'margin-top': '10px'}),
 
     # Store component to persist state
-    dcc.Store(id='app-state', storage_type='session'),
+    dcc.Store(id='app-state', data={}, storage_type='session'),
     dcc.Store(id='selected-folder', storage_type='session'),
     dcc.Store(id='mouse-data-store', storage_type='session'),
-    dcc.Store(id='event-store', data={}),
+    dcc.Store(id='event-store', data={}, storage_type='session'),
+    dcc.Store(id='event-colors', data={}, storage_type='session'),
+    dcc.Store(id='group-store', data={}, storage_type='session'),
 ])
 
 app.index_string = '''
@@ -117,20 +153,24 @@ app.index_string = '''
 '''
 
 @app.callback(
-    Output('app-state', 'data'),
-    Input('submit-path', 'n_clicks'),
-    Input('app-state', 'data'),
-    State('input-path', 'value')
+    [Output('app-state', 'data'),
+     Output('group-store', 'data', allow_duplicate=True),
+     Output('submit-path', 'n_clicks')],
+    [Input('submit-path', 'n_clicks')],
+    [State('app-state', 'data'),
+    State('input-path', 'value')],
+    prevent_initial_call=True
 )
 def update_app_state(n_clicks, data, input_value):
-    print(data)
     # if already data in the app state, return it
     if n_clicks > 0 and input_value:
-        mouse_data = load_raw_data(input_value)
-        return {'mouse_data': mouse_data}
+        mouse_data, group_store = load_raw_data(input_value)
+        return {'mouse_data': mouse_data}, group_store, 0
     elif data:
-        return data
-    return {}
+        if n_clicks > 0:
+            return data, dash.no_update, 0
+        return dash.no_update, dash.no_update, 0
+    return {}, dash.no_update, 0
 
 @app.callback(
     Output('mouse-dropdown', 'options'),
@@ -159,8 +199,8 @@ def update_dropdown_options(data):
 
 @app.callback(
     Output('mouse-dropdown', 'value'),
-    Input('url', 'pathname'),
-    State('mouse-dropdown', 'options')
+    [Input('url', 'pathname')],
+    [State('mouse-dropdown', 'options')]
 )
 def update_dropdown_value(pathname, options):
     values = [option['value'] for option in options]

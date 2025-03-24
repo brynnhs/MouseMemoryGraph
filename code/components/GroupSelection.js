@@ -4,6 +4,7 @@ const pastelColors = [
     '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BAFF', '#FFBAE1', '#BAFFD4'
 ];
 
+// Initial options
 const initialOptions = [
     { key: 'Recent', text: 'Recent', value: 'Recent', color: pastelColors[0] },
     { key: 'Remote', text: 'Remote', value: 'Remote', color: pastelColors[1] },
@@ -11,10 +12,27 @@ const initialOptions = [
 ];
 
 export default function MultiSelectDropdown(props) {
-    const { id, value, setProps } = props;
+    const { id, value, setProps, options } = props;
     // Initialize selectedValues from the passed value (default to empty array)
     const [selectedValues, setSelectedValues] = React.useState(value || []);
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
+
+    // Combine initial options with dynamically passed options
+    const combinedOptions = React.useMemo(() => {
+        return [...initialOptions, ...(options || [])];
+    }, [options]);
+
+    // Ensure no duplicate options by filtering unique keys
+    const uniqueOptions = React.useMemo(() => {
+        const seenKeys = new Set();
+        return combinedOptions.filter(option => {
+            if (seenKeys.has(option.key)) {
+                return false;
+            }
+            seenKeys.add(option.key);
+            return true;
+        });
+    }, [combinedOptions]);
 
     function toggleOption(val) {
         let newSelected;
@@ -46,7 +64,7 @@ export default function MultiSelectDropdown(props) {
                 zIndex: 1, 
                 minWidth: 'max-content' 
             }
-        }, initialOptions.map(option => 
+        }, uniqueOptions.map(option => 
             React.createElement('div', {
                 key: option.key,
                 onClick: () => toggleOption(option.value),
@@ -85,5 +103,6 @@ export default function MultiSelectDropdown(props) {
 }
 
 MultiSelectDropdown.defaultProps = {
-    value: []
+    value: [],
+    options: []
 };

@@ -11,17 +11,29 @@ const initialOptions = [
 ];
 
 export default function GroupDropdown(props) {
-    const { id, value, setProps, setOptions: setDashOptions } = props;
-    const [options, setOptions] = React.useState(initialOptions);
+    const { id, value, setProps, options: dashOptions = [], currentColor, setCurrentColor } = props;
+    const [options, setOptions] = React.useState([...initialOptions, ...dashOptions]);
     const [newGroupName, setNewGroupName] = React.useState('');
     const [showTextbox, setShowTextbox] = React.useState(false);
     const [dropdownOpen, setDropdownOpen] = React.useState(false);
 
+    // Update internal options state whenever the Dash-provided options change
+    React.useEffect(() => {
+        const mergedOptions = [...initialOptions, ...dashOptions];
+        const uniqueOptions = mergedOptions.filter(
+            (option, index, self) =>
+                index === self.findIndex((o) => o.value === option.value)
+        );
+        setOptions(uniqueOptions);
+    }, [dashOptions]);
+
     function onChange(optionValue) {
         if (optionValue === 'new') {
             setShowTextbox(true);
-        } else {
-            setProps({ value: optionValue });
+        } else if (optionValue !== '000000') { // Exclude 'loading' option
+            const selectedOption = options.find(option => option.value === optionValue);
+            setProps({ value: optionValue, currentColor: selectedOption?.color || pastelColors[0] }); // Update currentColor externally
+            setCurrentColor(selectedOption?.color || pastelColors[0]); // Update currentColor internally
             setDropdownOpen(false);
         }
     }
@@ -41,28 +53,36 @@ export default function GroupDropdown(props) {
         setOptions(newOptions);
         setNewGroupName('');
         setShowTextbox(false);
-        setProps({ value: newGroup.value });
+        setProps({ value: newGroup.value, currentColor: newGroup.color }); // Update currentColor externally
+        setCurrentColor(newGroup.color); // Update currentColor internally
         setDropdownOpen(false);
-        setDashOptions(newOptions); // Update Dash options
     }
 
     return React.createElement('div', { style: { position: 'relative', display: 'inline-block' } }, [
         React.createElement('div', {
             id: id,
-            onClick: () => setDropdownOpen(!dropdownOpen),
-            style: { padding: '10px', borderRadius: '5px', border: '1px solid #ccc', cursor: 'pointer', display: 'flex', alignItems: 'center' }
+            onClick: () => value !== '000000' && setDropdownOpen(!dropdownOpen), // Disable dropdown if 'loading'
+            style: { 
+                padding: '10px', 
+                borderRadius: '5px', 
+                border: '1px solid #ccc', 
+                cursor: value === '000000' ? 'not-allowed' : 'pointer', // Disable cursor if 'loading'
+                display: 'flex', 
+                alignItems: 'center', 
+                backgroundColor: value === '000000' ? '#f0f0f0' : 'white' // Gray out if 'loading'
+            }
         }, [
             React.createElement('span', {
                 style: {
                     display: 'inline-block',
                     width: '10px',
                     height: '10px',
-                    backgroundColor: options.find(option => option.value === value)?.color,
+                    backgroundColor: value === '000000' ? 'transparent' : options.find(option => option.value === value)?.color,
                     borderRadius: '50%',
                     marginRight: '5px'
                 }
             }),
-            options.find(option => option.value === value)?.text || 'Select Group'
+            value === '000000' ? 'Loading...' : (options.find(option => option.value === value)?.text || 'Select Group') // Show 'Loading...' if 'loading'
         ]),
         dropdownOpen && React.createElement('div', {
             style: { position: 'absolute', top: '100%', left: 0, right: 0, border: '1px solid #ccc', borderRadius: '5px', backgroundColor: 'white', zIndex: 1, minWidth: 'max-content' }
@@ -123,5 +143,7 @@ export default function GroupDropdown(props) {
 }
 
 GroupDropdown.defaultProps = {
-    value: 'Recent'
+    value: 'Recent',
+    currentColor: '#FFB3BA', // Default color
+    options: [] // Default to an empty array
 };
