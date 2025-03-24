@@ -373,22 +373,3 @@ class MergeDatasets():
         instance.fps = data_dict['fps']
         return instance
 
-
-
-# --- Dynamic Data Loading for Multiple Mice ---
-
-if getattr(sys, 'frozen', False):
-    # Running as an executable
-    base_path = sys._MEIPASS
-else:
-    # Running as a script
-    base_path = os.path.dirname(os.path.abspath(__file__))
-
-data_dir = os.path.join(base_path, "../data")  # Go to root of MouseMemoryGraph
-data_dir = os.path.abspath(data_dir)
-
-# Auto-detect all mouse folders
-mouse_folders = [f for f in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, f))]
-
-# Dictionary to store datasets
-mouse_data = {}
