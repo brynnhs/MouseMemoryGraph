@@ -202,11 +202,15 @@ def populate_group_dropdown_options(
     Output('mouse-data-store', 'data'),
     [Input('selected-folder', 'data'), 
      Input('event-store', 'data'),
-     Input('app-state', 'data')],
+     Input('app-state', 'data'),
+     Input('url', 'pathname')],
      [State('mouse-data-store', 'data')]
 )
 
-def load_mouse_data(folder, events, app_state, data):
+def load_mouse_data(folder, events, app_state, data, pathname):
+    
+    if not pathname.startswith('/average/'):
+        return dash.no_update
 
     if not data:
         data = {}
@@ -233,13 +237,16 @@ def load_mouse_data(folder, events, app_state, data):
 
 @callback(
     Output('color-overrides', 'data'),
-    [Input('average-color-picker', 'value')],
+    [Input('average-color-picker', 'value'),
+     Input('url', 'pathname')],
     [State('average-plot-dropdown', 'value'),
      State('average-trace-dropdown', 'value'),
      State('color-overrides', 'data')],
 )
-def update_color_overrides(selected_color, selected_plot, selected_trace, color_overrides):
+def update_color_overrides(selected_color, selected_plot, selected_trace, color_overrides,pathname):
     """Update the color map with the selected color for a specific trace."""
+    if not pathname.startswith('/average/'):
+        return dash.no_update
     if not selected_plot or not selected_trace or not selected_color:
         return color_overrides
 
@@ -260,11 +267,14 @@ def update_color_overrides(selected_color, selected_plot, selected_trace, color_
 
 @callback(
     Output('average-trace-dropdown', 'options'),
-    [Input('average-plot-dropdown', 'value')],
+    [Input('average-plot-dropdown', 'value'),
+     Input('url', 'pathname')],
     [State('stored-figures', 'data')]
 )
-def update_trace_dropdown(selected_plot, stored_figures):
+def update_trace_dropdown(selected_plot, stored_figures, pathname):
     """Update trace selection based on the selected graph."""
+    if not pathname.startswith('/average/'):
+        return dash.no_update
     if not selected_plot or not stored_figures:
         return []
 
@@ -283,6 +293,7 @@ def update_trace_dropdown(selected_plot, stored_figures):
     Output('stored-figures', 'data')],
     [Input('mouse-data-store', 'data'),
      Input('group-store', 'data'),
+     Input('url', 'pathname'),
      Input('seconds-before', 'value'),
      Input('seconds-after', 'value'),
      Input('x-axis-step', 'value'),
@@ -303,8 +314,9 @@ def update_graph(mouse_data,
                  on, 
                  color_overrides, 
                  selected_event,
-                 event_colors):
-    print(event_colors)
+                 event_colors, pathname):
+    if not pathname.startswith('/average/'):
+        return dash.no_update
     for mouse, group in assignments.items():
         if group['group'] not in color_map.keys():
             color_map[group['group']] = group['color']
