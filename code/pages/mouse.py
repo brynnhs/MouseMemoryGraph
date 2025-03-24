@@ -40,6 +40,7 @@ def load_raw_data(
     mouse, 
     events=None
     ):
+    
     """Load raw merged data for a specific mouse and cache the result."""
     # Convert events dictionary to a hashable type (tuple of sorted key-value pairs)
     events = tuple(sorted(events.items())) if events else None
@@ -172,38 +173,21 @@ def layout(
         )
     ])
 
-# Callback to populate EventSelection options from event-store
+# Callback to populate GroupDropdown options from group-store
 @app.callback(
     Output('event-selection-mouse', 'options'),
-    [Input('event-store', 'data')],
+    [Input('event-store', 'data'),
+     Input('url', 'pathname')],
     [State('event-colors', 'data')]
 )
-def populate_event_selection_options(
-    event_store,
-    event_colors
-    ):
+def populate_event_selection_options(event_store, pathname, event_colors):
+    if not pathname.startswith('/mouse/'):
+        return dash.no_update
     if event_store:
-        # Convert event-store keys to dropdown options
         options = list(event_store.keys())
     else:
         options = []
-    return [{'label': key, 'value': key, 'text': key, 'color': event_colors.get(key, None)
-             } for key in options]
-
-# Callback to populate GroupDropdown options from group-store
-@app.callback(
-    Output('group-dropdown', 'options'),
-    [Input('group-store', 'data')]
-)
-def populate_group_dropdown_options(
-    group_store
-    ):
-    if group_store:
-        # Convert group-store keys to dropdown options
-        options = list(group_store.values())
-    else:
-        options = []
-    return [{'label': key['group'], 'value': key['group'], 'text': key['group'], 'color': key['color']} for key in options]
+    return [{'label': key, 'value': key, 'text': key, 'color': event_colors.get(key, None)} for key in options]
 
 
 @callback(
@@ -237,7 +221,8 @@ def update_graph(
      event_colors
     ):
 
-    print(event_colors)
+    if not pathname.startswith('/mouse/'):
+        return dash.no_update
     if not mouse_data:
             return "No data available."
     mouse = pathname.split('/')[-1]
@@ -425,6 +410,8 @@ def manage_mouse_assignment(mouse_assignments, pathname):
     """
     Populate the dropdown with the stored assignment for the mouse when the page loads.
     """
+    if not pathname.startswith('/mouse/'):
+        return dash.no_update
     if not mouse_assignments:
         return None  # No assignment exists, so nothing is selected
     mouse_id = pathname.split('/')[-1]
@@ -442,6 +429,8 @@ def update_mouse_assignment(mouse_assignments, new_value, color, pathname):
     """
     Update the group-store with the selected group and color for the current mouse.
     """
+    if not pathname.startswith('/mouse/'):
+        return dash.no_update
     mouse_id = pathname.split('/')[-1]
     if not mouse_assignments:
         mouse_assignments = {}
@@ -458,7 +447,8 @@ def update_mouse_assignment(mouse_assignments, new_value, color, pathname):
         Input('accintervalon', 'figure'),
         Input('accintervaloff', 'figure'),
         Input('accchange', 'figure'),
-        Input('acc_separated', 'figure')
+        Input('acc_separated', 'figure'),
+        Input('url', 'pathname')
     ]
 )
 def update_acc_trace_options(
@@ -467,12 +457,15 @@ def update_acc_trace_options(
     fig_interval_on,
     fig_interval_off,
     fig_change,
-    fig_separated
+    fig_separated,
+    pathname
 ):
     """
     Decide which figure to pull trace data from based on selected_graph.
     Then create a list of options (label/value) from that figure's traces.
     """
+    if not pathname.startswith('/mouse/'):
+        return dash.no_update
     if selected_graph == 'full':
         fig = fig_full
     elif selected_graph == 'interval_on':
@@ -504,7 +497,8 @@ def update_acc_trace_options(
         Input('adnintervalon', 'figure'),
         Input('adnintervaloff', 'figure'),
         Input('adnchange', 'figure'),
-        Input('adn_separated', 'figure')
+        Input('adn_separated', 'figure'),
+        Input('url', 'pathname')
     ]
 )
 def update_adn_trace_options(
@@ -513,8 +507,11 @@ def update_adn_trace_options(
     fig_interval_on,
     fig_interval_off,
     fig_change,
-    fig_separated
+    fig_separated,
+    pathname
 ):
+    if not pathname.startswith('/mouse/'):
+        return dash.no_update
     shapes = None
     if selected_graph == 'full':
         fig = fig_full
@@ -556,7 +553,8 @@ def update_adn_trace_options(
     ],
     [Input('acc-color-picker', 'value'),
      Input('acc-graph-dropdown', 'value'),
-     Input('acc-trace-dropdown', 'value')],
+     Input('acc-trace-dropdown', 'value'),
+    Input('url', 'pathname')],
     [
       State('acc', 'figure'),
       State('accintervalon', 'figure'),
@@ -567,7 +565,9 @@ def update_adn_trace_options(
 )
 def update_acc_color(color_value, selected_graph, selected_trace,
                      fig_full, fig_interval_on, fig_interval_off,
-                     fig_change, fig_separated):
+                     fig_change, fig_separated, pathname):
+    if not pathname.startswith('/mouse/'):
+        return dash.no_update
     if selected_trace is None or color_value is None:
         return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
 
@@ -649,7 +649,8 @@ def update_acc_color(color_value, selected_graph, selected_trace,
     ],
     [Input('adn-color-picker', 'value'),
      Input('adn-graph-dropdown', 'value'),
-     Input('adn-trace-dropdown', 'value')],
+     Input('adn-trace-dropdown', 'value'),
+     Input('url', 'pathname')],
     [
       State('adn', 'figure'),
       State('adnintervalon', 'figure'),
@@ -660,7 +661,9 @@ def update_acc_color(color_value, selected_graph, selected_trace,
 )
 def update_adn_color(color_value, selected_graph, selected_trace,
                      fig_full, fig_interval_on, fig_interval_off,
-                     fig_change, fig_separated):
+                     fig_change, fig_separated,pathname):
+    if not pathname.startswith('/mouse/'):
+        return dash.no_update
     if selected_trace is None or color_value is None:
         return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
 
