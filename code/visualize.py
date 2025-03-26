@@ -258,7 +258,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
         on_sec = on / fps
         off_sec = off / fps
         fig.add_vrect(name='freezing bouts', x0=on_sec, x1=off_sec, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0,
-                      legendgroup='freezing bouts', showlegend=True)
+                      showlegend=True)
 
     for i, e in enumerate(object.events):
         if e != 'freezing':
@@ -267,7 +267,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
                 on_sec = on / fps
                 off_sec = off / fps
                 fig.add_vrect(name=f'{e}', x0=on_sec, x1=off_sec, fillcolor=event_colors[e], opacity=0.2, layer='below', line_width=0,
-                              legendgroup=f'{e}', showlegend=True)
+                              showlegend=True)
     
     # Build the interval_on and interval_off figures
     aggregate_on = []
@@ -284,8 +284,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
         fig.add_vrect(
             x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue' if event=='freezing' else event_colors[event], 
             opacity=0.2, layer='below', line_width=0,
-            name=f'{e}' if event != 'freezing' else 'freezing bouts in analysis',
-            legendgroup='freezing bouts in analysis' if event=='freezing' else f'{e}',
+            name=f'{event} bouts in analysis',
             showlegend=True
         )
     
@@ -457,7 +456,7 @@ def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fp
                 on_sec = on / fps
                 off_sec = off / fps
                 fig.add_vrect(x0=on_sec, x1=off_sec, fillcolor=event_colors[e], opacity=0.2, layer='below', line_width=0,
-                              legendgroup=f'{e}', showlegend=True, name=f'{e}')
+                              showlegend=True, name=f'{e}')
      
     # (A) Shade all freezing intervals with lightblue (opacity 0.3)
     for on_time, off_time in freezing_intervals:
@@ -468,7 +467,6 @@ def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fp
             opacity=0.3,
             layer='below',
             line_width=0,
-            legendgroup='freezing bouts',
             showlegend=True,
             name='freezing bouts'
         )
@@ -480,9 +478,8 @@ def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fp
             opacity=0.2, 
             layer='below', 
             line_width=0,
-            legendgroup='freezing bouts in analysis' if event=='freezing' else f'{event}',
             showlegend=True,
-            name='freezing bouts in analysis'
+            name=f'{event} bouts in analysis'
         )
      
     overall_min = min(signal_percent.min(), control_percent.min()) - 5
