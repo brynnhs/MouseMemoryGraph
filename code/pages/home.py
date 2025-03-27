@@ -141,7 +141,11 @@ layout = html.Div([
 def update_color_tracking(selected_event, current_color, n_clicks, color_picker_color, data):
     data[selected_event] = current_color
     if color_picker_color and selected_event:
-        data[selected_event] = color_picker_color['hex']
+        try:
+            data[selected_event] = color_picker_color['hex']
+        except:
+            data[selected_event] = current_color
+    print(data)
     return data
 
 @app.callback(

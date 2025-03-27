@@ -7,7 +7,7 @@ pastel_colors = [
     '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BAFF', '#FFBAE1', '#BAFFD4'
 ]
 
-def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before, after, fps, color_map, event_color=None, color_overrides=None):
+def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before, after, fps, color_map, event_color=None, color_overrides=None, freezing_color='lightblue'):
     """
     Generate average plots for ON and OFF epochs.
     
@@ -89,7 +89,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(10, 10, 10, 0.02)'
     )
-    fig_on.add_vrect(x0=0, x1=after, fillcolor=event_color if event_color else 'lightblue', opacity=0.3, layer='below', line_width=0)
+    fig_on.add_vrect(x0=0, x1=after, fillcolor=event_color if event_color else freezing_color, opacity=0.3, layer='below', line_width=0)
     
     # ----- Offset Plot -----
     fig_off = go.Figure()
@@ -148,7 +148,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(10, 10, 10, 0.02)'
     )
-    fig_off.add_vrect(x0=-before, x1=0, fillcolor=event_color if event_color else 'lightblue', opacity=0.3, layer='below', line_width=0)
+    fig_off.add_vrect(x0=-before, x1=0, fillcolor=event_color if event_color else freezing_color, opacity=0.3, layer='below', line_width=0)
 
     # average change plot
     avg_change_on = go.Figure(layout_yaxis_range=[-2, 2])
@@ -212,7 +212,7 @@ def generate_average_plot(sensor, epochs_on, epochs_off, avg_on, avg_off, before
     
     return fig_on, fig_off, avg_change_on, avg_change_off
 
-def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, event, event_colors, name='ACC'):
+def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after, epochs_acc_on, epochs_acc_off, avg_on, avg_off, event, event_colors, freezing_color, name='ACC'):
     """
     Generate detailed plots for the given sensor:
       - The full signals figure 
@@ -257,7 +257,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
     for on, off in freezing_intervals:
         on_sec = on / fps
         off_sec = off / fps
-        fig.add_vrect(name='freezing bouts', x0=on_sec, x1=off_sec, fillcolor='lightblue', opacity=0.3, layer='below', line_width=0,
+        fig.add_vrect(name='freezing bouts', x0=on_sec, x1=off_sec, fillcolor=freezing_color, opacity=0.3, layer='below', line_width=0,
                       showlegend=True)
 
     for i, e in enumerate(object.events):
@@ -282,7 +282,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
         ))
         aggregate_on.append(y_epoch)
         fig.add_vrect(
-            x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor='blue' if event=='freezing' else event_colors[event], 
+            x0=inter[1][0] / fps, x1=inter[1][1] / fps, fillcolor=freezing_color if event=='freezing' else event_colors[event], 
             opacity=0.2, layer='below', line_width=0,
             name=f'{event} bouts in analysis',
             showlegend=True
@@ -314,7 +314,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
             x=x_epoch, y=mean_on - std_on, fill='tonexty', hoverinfo="skip",
             fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
         ))
-        interval_on.add_vrect(x0=0, x1=after, fillcolor='lightblue' if event=='freezing' else event_colors[event], 
+        interval_on.add_vrect(x0=0, x1=after, fillcolor=freezing_color if event=='freezing' else event_colors[event], 
                               opacity=0.3, layer='below', line_width=0)
     
     # Compute mean & std for offsets
@@ -334,7 +334,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
             x=x_epoch, y=mean_off - std_off, fill='tonexty', hoverinfo="skip",
             fillcolor='rgba(0, 0, 255, 0.1)', line=dict(color='rgba(255,255,255,0)'), showlegend=False
         ))
-        interval_off.add_vrect(x0=-before, x1=0, fillcolor='lightblue' if event=='freezing' else event_colors[event],
+        interval_off.add_vrect(x0=-before, x1=0, fillcolor=freezing_color if event=='freezing' else event_colors[event],
                                opacity=0.3, layer='below', line_width=0)
     
     # Bar plot for the zdFF change
@@ -400,7 +400,7 @@ def generate_plots(object, mergeddataset, freezing_intervals, fps, before, after
     
     return fig, interval_on, interval_off, avg_change
 
-def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fps, freezing_intervals, seconds_after, event, event_colors):
+def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fps, freezing_intervals, seconds_after, event, event_colors, freezing_color):
     """
     Generate a separated plot for a given sensor (e.g., 'ACC' or 'ADN').
 
@@ -463,7 +463,7 @@ def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fp
         fig.add_vrect(
             x0=on_time / fps,
             x1=off_time / fps,
-            fillcolor='lightblue',
+            fillcolor=freezing_color,
             opacity=0.3,
             layer='below',
             line_width=0,
@@ -474,7 +474,7 @@ def generate_separated_plot(object, sensor, offset, epochs_on, mergeddataset, fp
         fig.add_vrect(
             x0=inter[1][0] / fps, 
             x1=inter[1][1] / fps, 
-            fillcolor='blue' if event=='freezing' else event_colors[event], 
+            fillcolor=freezing_color if event=='freezing' else event_colors[event], 
             opacity=0.2, 
             layer='below', 
             line_width=0,

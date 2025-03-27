@@ -68,6 +68,7 @@ EventRender = load_react_component(app, "components", "EventRender.js")
 layout = html.Div([
     dcc.Store(id='stored-figures', data={}),
     dcc.Store(id='color-overrides', data={}),
+    dcc.Store(id='freezing-color-avg', data='lightblue'),
     # Include the group selection dropdown (MultiSelect)
     html.Div([
         GroupSelection(id='group-selection', value=[])  # Initially, no groups selected
@@ -161,7 +162,15 @@ layout = html.Div([
         id='average-color-picker',
         label='Pick a color for the Average Tab',
         value={'rgb': dict(r=0, g=0, b=255, a=1)}
-    )
+    ),
+    # Freezing Color Picker Section
+    html.Div([
+        html.H3("Freezing event color"),
+        daq.ColorPicker(
+            id='freezing-color-picker-avg',
+            value={'rgb': {'r': 128, 'g': 128, 'b': 128, 'a': 1}}
+        )
+    ], style={'margin': '20px'}),
 ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'}),
 ])
 
@@ -253,7 +262,6 @@ def update_color_overrides(selected_color, selected_plot, selected_trace, color_
     # Store color override by trace name
     color_overrides[selected_trace] = hex_color
 
-    print(f"Updated color overrides: {color_overrides}")
 
     # Return updated `color-overrides`
     return color_overrides
@@ -291,6 +299,7 @@ def update_trace_dropdown(selected_plot, stored_figures):
      Input('boolean-switch', 'on'),
      Input('color-overrides', 'data'),
      Input('event-selection-average', 'value')],
+     Input('freezing-color-avg', 'data'),
      [State('event-colors', 'data')]
 )
 def update_graph(mouse_data, 
@@ -303,8 +312,8 @@ def update_graph(mouse_data,
                  on, 
                  color_overrides, 
                  selected_event,
+                 freezing_color,
                  event_colors):
-    print(event_colors)
     for mouse, group in assignments.items():
         if group['group'] not in color_map.keys():
             color_map[group['group']] = group['color']
@@ -314,7 +323,6 @@ def update_graph(mouse_data,
     if not selected_groups:
         selected_groups = []
 
-    print('color overrides in update_graph is', color_overrides)
     if color_overrides is None:
         color_overrides = {}
 
@@ -366,8 +374,8 @@ def update_graph(mouse_data,
         return html.Div("No data available for the selected condition groups."), {}
     
     # Generate the average plots using dictionaries.
-    acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_map, color, color_overrides)
-    adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_map, color, color_overrides)
+    acc_on_fig, acc_off_fig, acc_on_change, acc_off_change = generate_average_plot("ACC", acc_on_dict, acc_off_dict, acc_avg_on_dict, acc_avg_off_dict, seconds_before, seconds_after, fps, color_map, color, color_overrides, freezing_color)
+    adn_on_fig, adn_off_fig, adn_on_change, adn_off_change = generate_average_plot("ADN", adn_on_dict, adn_off_dict, adn_avg_on_dict, adn_avg_off_dict, seconds_before, seconds_after, fps, color_map, color, color_overrides, freezing_color)
     
     # Update axis tick step for all figures
     for fig in [acc_on_fig, acc_off_fig, adn_on_fig, adn_off_fig, acc_on_change, acc_off_change, adn_on_change, adn_off_change]:
@@ -410,3 +418,11 @@ def update_graph(mouse_data,
         'adnoff_change': adn_off_change
     }
     return content, figures_data
+
+@app.callback(
+    Output('freezing-color-avg', 'data'),
+    [Input('freezing-color-picker-avg', 'value')],
+)
+
+def update_freezing_color(color_value):
+    return color_value['hex']

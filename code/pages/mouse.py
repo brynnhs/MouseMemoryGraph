@@ -73,6 +73,7 @@ def layout(
     return html.Div([
         html.Div([
         dcc.Location(id='url'),
+        dcc.Store(id='freezing-color', data='lightblue'),
         html.H2(f'Mouse {mouse}'),
         html.Div([
             html.Div([
@@ -219,6 +220,7 @@ def populate_group_dropdown_options(
      Input('graph-title', 'value'),
      Input('x-axis-title', 'value'),
      Input('y-axis-title', 'value')],
+     Input('freezing-color', 'data'),
      [State('event-colors', 'data')]
 )
 
@@ -234,6 +236,7 @@ def update_graph(
      graph_title,
      x_axis_title,
      y_axis_title,
+     freezing_color,
      event_colors
     ):
 
@@ -268,6 +271,7 @@ def update_graph(
                                      merged.get_epoch_average(intervals, 'ACC', before=seconds_before, after=seconds_after, type='off', filter=on),
                                      selected_event,
                                      event_colors,
+                                     freezing_color,
                                      name='ACC')
         adn_future = executor.submit(generate_plots, merged, merged.df, freezing_intervals, fps, seconds_before, seconds_after,
                                      epoch_data['ADN']['on'], epoch_data['ADN']['off'],
@@ -275,6 +279,7 @@ def update_graph(
                                      merged.get_epoch_average(intervals, 'ADN', before=seconds_before, after=seconds_after, type='off', filter=on),
                                      selected_event,
                                      event_colors,
+                                     freezing_color,
                                      name='ADN')
 
         acc_full, acc_interval_on, acc_interval_off, acc_change = acc_future.result()
@@ -282,10 +287,10 @@ def update_graph(
 
     acc_separated = generate_separated_plot(merged, 'ACC', 200,
                                              merged.get_epoch_data(intervals, 'ACC', before=seconds_before, after=seconds_after, filter=on),
-                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event, event_colors)
+                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event, event_colors, freezing_color)
     adn_separated = generate_separated_plot(merged, 'ADN', 200,
                                              merged.get_epoch_data(intervals, 'ADN', before=seconds_before, after=seconds_after, filter=on),
-                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event, event_colors)
+                                             mergeddataset, fps, freezing_intervals, seconds_after, selected_event, event_colors, freezing_color)
 
     # Update axis steps and layout titles for all figures (not x axis for bar plots)
     figure_list = [
@@ -409,8 +414,17 @@ def update_graph(
                     id='adn-color-picker',
                     value={'rgb': {'r': 128, 'g': 128, 'b': 128, 'a': 1}}
                 )
-            ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'})
-        ], style={'display': 'flex', 'flex-direction': 'row', 'justify-content': 'space-around'})
+            ], style={'width': '45%', 'display': 'inline-block', 'margin': '20px'}),
+        ], style={'display': 'flex', 'flex-direction': 'row', 'justify-content': 'space-around'}),
+
+        # Freezing Color Picker Section
+        html.Div([
+            html.H3("Freezing event color"),
+            daq.ColorPicker(
+                id='freezing-color-picker',
+                value={'rgb': {'r': 128, 'g': 128, 'b': 128, 'a': 1}}
+            )
+        ], style={'margin': '20px'}),
     ], style={'display': 'flex', 'flex-direction': 'column'})
     
     return content
@@ -735,3 +749,11 @@ def update_adn_color(color_value, selected_graph, selected_trace,
 
     else:
         return fig_full, fig_interval_on, fig_interval_off, fig_change, fig_separated
+    
+@app.callback(
+    Output('freezing-color', 'data'),
+    [Input('freezing-color-picker', 'value')],
+)
+
+def update_freezing_color(color_value):
+    return color_value['hex']
